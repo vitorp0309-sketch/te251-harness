@@ -4,7 +4,9 @@ import json
 import re
 
 _CODIGO_DTC = re.compile(r"\b[PCBU]\d{4}\b")
-_NUM = re.compile(r"-?\d+(?:[.,]\d+)?")
+# O sinal de menos só vale quando não vem colado em outro número ou palavra:
+# "-5 °C" é negativo, mas em "80-105" o hífen separa a faixa.
+_NUM = re.compile(r"(?:(?<![\w.,])-)?\d+(?:[.,]\d+)?")
 
 
 def _numeros(texto):
