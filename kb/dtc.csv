@@ -1,0 +1,9 @@
+codigo,descricao,gravidade,orientacao
+P0217,Condição de sobretemperatura do líquido de arrefecimento,alta,Reduzir carga e parar em local seguro; verificar nível do líquido e ventoinha com o motor frio
+P0562,Tensão do sistema baixa,media,Verificar bateria e alternador; evitar desligar o motor longe de apoio
+P0299,Turbo com subalimentação (underboost),media,Reduzir carga; verificar mangueiras de pressurização e atuador do turbo
+P0128,Termostato abaixo da temperatura regulada,baixa,Monitorar aquecimento do motor; programar troca do termostato
+P0401,EGR com fluxo insuficiente,baixa,Programar limpeza ou verificação da válvula EGR
+P2002,DPF com eficiência abaixo do limite,media,Fazer regeneração do DPF em rodovia; procurar oficina se persistir
+P0087,Pressão do rail de combustível baixa,alta,Reduzir carga; verificar filtro de combustível e bomba de alta pressão
+P0335,Sensor de posição do virabrequim - circuito,alta,Risco de o motor apagar; procurar oficina

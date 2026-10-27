@@ -1,0 +1,372 @@
+<title>TE-251 × RAG RIPEAM</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Source+Sans+3:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: bancada de ensaio — duas pistas paralelas (RIPEAM à esquerda, TE-251 à direita) rodando a mesma pergunta; abaixo, a tabela camada a camada e o lugar do Python. */
+:root{
+  --bg:#ECEFF0; --surface:#FFFFFF; --sunk:#F5F7F7; --ink:#14232B; --muted:#5B6C74; --line:#C6D0D4;
+  --te:#0E6B77; --te-soft:#DCEEF0; --rip:#34479A; --rip-soft:#E2E6F5;
+  --data:#C77D00; --ok:#2C8250; --warn:#B86A00; --bad:#B8362A;
+  --f-disp:"Barlow Condensed","Arial Narrow",Arial,sans-serif;
+  --f-body:"Source Sans 3","Segoe UI",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0D1417; --surface:#152025; --sunk:#111A1E; --ink:#E2EBED; --muted:#91A3AA; --line:#2B3B42;
+  --te:#47B9C5; --te-soft:#14343A; --rip:#8C9EEA; --rip-soft:#1E2643;
+  --data:#F0B23C; --ok:#5CC487; --warn:#F0A43C; --bad:#F07264; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0D1417; --surface:#152025; --sunk:#111A1E; --ink:#E2EBED; --muted:#91A3AA; --line:#2B3B42;
+  --te:#47B9C5; --te-soft:#14343A; --rip:#8C9EEA; --rip-soft:#1E2643;
+  --data:#F0B23C; --ok:#5CC487; --warn:#F0A43C; --bad:#F07264; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5}
+.wrap{max-width:1180px;margin:0 auto;padding-block:20px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:22px}
+h1,h2,h3{font-family:var(--f-disp);font-weight:600;letter-spacing:.01em;text-wrap:balance;margin:0}
+h1{font-size:clamp(30px,5vw,44px);line-height:1}
+h2{font-size:24px}
+h3{font-size:18px}
+p{margin:0}
+.eyebrow{font-family:var(--f-mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.lead{max-width:72ch;color:var(--muted);margin-top:6px}
+code{font-family:var(--f-mono);font-size:12.5px;background:var(--sunk);padding:1px 5px;border-radius:4px}
+button,select{font:inherit;font-size:14px;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:7px 12px;cursor:pointer}
+button:hover{border-color:var(--muted)}
+button:focus-visible,select:focus-visible{outline:2px solid var(--data);outline-offset:2px}
+button.primary{background:var(--ink);color:var(--bg);border-color:var(--ink);font-weight:600}
+button:disabled{opacity:.5;cursor:default}
+
+.verdict{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+@media (max-width:820px){.verdict{grid-template-columns:minmax(0,1fr)}}
+.verdict div{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px}
+.verdict b{display:block;font-family:var(--f-disp);font-size:18px;font-weight:600;margin-bottom:4px}
+.verdict p{font-size:14px;color:var(--muted)}
+
+.sim{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:14px}
+.scen{display:flex;flex-wrap:wrap;gap:8px}
+.scen button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.qline{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+.q{font-family:var(--f-disp);font-size:22px;font-weight:600}
+.q small{display:block;font-family:var(--f-body);font-size:13px;font-weight:400;color:var(--muted)}
+.lanes{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px}
+@media (max-width:820px){.lanes{grid-template-columns:minmax(0,1fr)}}
+.lane{border:1px solid var(--line);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.lane.rip{border-top:4px solid var(--rip)}
+.lane.te{border-top:4px solid var(--te)}
+.lane-h{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}
+.lane-h span{font-family:var(--f-mono);font-size:11.5px;color:var(--muted)}
+.strip{display:flex;flex-wrap:wrap;gap:6px}
+.comp{font-size:12px;padding:3px 8px;border-radius:5px;border:1px solid var(--line);color:var(--muted);display:inline-flex;gap:5px;align-items:center}
+.lane.rip .comp{background:var(--rip-soft)}
+.lane.te .comp{background:var(--te-soft)}
+.comp i{font-style:normal;font-family:var(--f-mono);font-size:10px;padding:0 4px;border-radius:3px;border:1px solid currentColor}
+.comp.on{border-color:var(--data);color:var(--ink);box-shadow:0 0 0 2px var(--data) inset}
+.comp.dead{border-color:var(--bad);color:var(--bad);text-decoration:line-through}
+ol.steps{list-style:none;margin:0;padding:0;counter-reset:s}
+ol.steps li{display:grid;grid-template-columns:26px minmax(0,1fr);gap:10px;padding:9px 0;border-top:1px solid var(--line);counter-increment:s;transition:opacity .2s}
+ol.steps li::before{content:counter(s);font-family:var(--f-mono);font-size:11.5px;width:22px;height:22px;border-radius:50%;border:1.5px solid var(--line);display:grid;place-items:center;color:var(--muted)}
+ol.steps li.idle{opacity:.35}
+ol.steps li.ok::before{border-color:var(--ok);color:var(--ok)}
+ol.steps li.warn::before{border-color:var(--warn);color:var(--warn)}
+ol.steps li.bad::before{border-color:var(--bad);color:var(--bad);background:color-mix(in srgb,var(--bad) 14%,transparent)}
+ol.steps li.on::before{border-color:var(--data);background:var(--data);color:#1A1206}
+.st-t{font-weight:600;font-size:14.5px}
+.st-b{font-size:13.5px;color:var(--muted);margin-top:2px}
+.st-b .note{display:block;margin-top:4px;font-size:12.5px}
+.st-b .note.warn{color:var(--warn)} .st-b .note.bad{color:var(--bad)} .st-b .note.ok{color:var(--ok)}
+pre.json{font-family:var(--f-mono);font-size:11.5px;background:var(--sunk);border:1px solid var(--line);border-radius:6px;padding:7px 9px;margin:5px 0 0;overflow-x:auto;white-space:pre-wrap;color:var(--ink)}
+.out{border-radius:8px;padding:10px 12px;border:1.5px solid var(--line);background:var(--sunk);min-height:64px}
+.out.ok{border-color:var(--ok);background:color-mix(in srgb,var(--ok) 8%,var(--surface))}
+.out.warn{border-color:var(--warn);background:color-mix(in srgb,var(--warn) 8%,var(--surface))}
+.out.bad{border-color:var(--bad);background:color-mix(in srgb,var(--bad) 8%,var(--surface))}
+.out .eyebrow{margin-bottom:3px}
+.out .verd{font-family:var(--f-mono);font-size:11.5px;margin-top:6px;color:var(--muted)}
+.lesson{border-left:3px solid var(--data);padding:6px 12px;background:var(--sunk);font-size:14.5px;max-width:95ch}
+
+.tbl{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:10px}
+table{border-collapse:collapse;width:100%;min-width:720px;font-size:14px}
+th,td{text-align:left;vertical-align:top;padding:10px 12px;border-top:1px solid var(--line)}
+thead th{border-top:none;font-family:var(--f-disp);font-size:17px;font-weight:600}
+thead th.rip{color:var(--rip)} thead th.te{color:var(--te)}
+tbody th{font-family:var(--f-mono);font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:400;width:150px}
+td .tag{font-family:var(--f-mono);font-size:10.5px;padding:0 5px;border-radius:3px;border:1px solid currentColor;margin-left:4px;white-space:nowrap}
+td .tag.bad{color:var(--bad)} td .tag.ok{color:var(--ok)}
+
+.reuse{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px}
+@media (max-width:760px){.reuse{grid-template-columns:minmax(0,1fr)}}
+.reuse div{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px}
+.reuse ul{margin:6px 0 0;padding-left:18px;display:flex;flex-direction:column;gap:5px;font-size:14px}
+
+.py{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:18px;align-items:start}
+@media (max-width:900px){.py{grid-template-columns:minmax(0,1fr)}}
+.stack{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:0}
+.layer{border:1.5px solid var(--line);border-radius:8px;padding:10px 12px;background:var(--surface)}
+.layer h3{font-size:17px}
+.layer p{font-size:13.5px;color:var(--muted);margin-top:2px}
+.layer.ui{border-style:dashed}
+.layer.hb{border-color:var(--te);background:var(--te-soft)}
+.layer.hb h3{color:var(--ink)}
+.layer.oll{border-color:var(--muted)}
+.row2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
+.arrow{font-family:var(--f-mono);font-size:11px;color:var(--muted);padding:6px 0 6px 18px;position:relative}
+.arrow::before{content:"";position:absolute;left:8px;top:2px;bottom:2px;width:2px;background:var(--line)}
+.layer ul{margin:6px 0 0;padding-left:18px;font-size:13.5px;display:flex;flex-direction:column;gap:2px}
+.opts{display:flex;flex-direction:column;gap:12px}
+.opt{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px}
+.opt.rec{border:2px solid var(--ok)}
+.opt-h{display:flex;justify-content:space-between;gap:8px;align-items:baseline;flex-wrap:wrap}
+.pill{display:inline-flex;font-family:var(--f-mono);font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid currentColor}
+.pill.ok{color:var(--ok)} .pill.warn{color:var(--warn)} .pill.bad{color:var(--bad)}
+.opt p{font-size:14px;margin-top:6px}
+.opt p.muted{color:var(--muted)}
+pre.code{font-family:var(--f-mono);font-size:11.5px;background:var(--sunk);border:1px solid var(--line);border-radius:6px;padding:8px 10px;margin:8px 0 0;overflow-x:auto;white-space:pre;color:var(--ink)}
+.foot{font-size:12.5px;color:var(--muted);max-width:95ch}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Projeto TE-251 · comparação com o chatbot do artigo RIPEAM</div>
+    <h1>TE-251 × RAG RIPEAM</h1>
+    <p class="lead">Os dois são “LLM + contexto buscado fora do modelo”. A diferença está no que se busca e em quem decide buscar. O RIPEAM sempre puxa 3 trechos de um PDF que não muda. O TE-251 deixa o modelo escolher ferramentas que leem um carro que muda a cada segundo, e depois confere a resposta.</p>
+  </header>
+
+  <section class="verdict" aria-label="Resumo">
+    <div><b>O que é igual</b><p>Python, prompt de grounding (“responda só com o contexto”), um laço de chat e uma interface web. O padrão de RAG do RIPEAM vira uma das ferramentas do TE-251.</p></div>
+    <div><b>O que muda</b><p>Dado vivo com idade, ferramentas escolhidas pelo modelo, checagem de números, tudo local em duas máquinas com GPU e réplica por MQTT.</p></div>
+    <div><b>O que não serve</b><p>gpt-4o-mini e embeddings da OpenAI (nuvem é proibida), o índice Chroma do RIPEAM, o venv de Windows e a chave exposta no código, que precisa ser revogada.</p></div>
+  </section>
+
+  <section class="sim" aria-label="Simulação lado a lado">
+    <div>
+      <div class="eyebrow">Simulação lado a lado</div>
+      <h2>A mesma pergunta nas duas arquiteturas</h2>
+      <p class="lead">A coluna da esquerda roda o código do RIPEAM como ele está (<code>chat_ripeam.py</code>), só trocando o PDF pelo manual da SW4. A da direita roda o harness v0.2. Escolha um cenário e aperte Rodar.</p>
+    </div>
+    <div class="scen" role="group" aria-label="Cenários" id="scen"></div>
+    <div class="qline">
+      <div class="q" id="qText"></div>
+      <button class="primary" id="btnRun" type="button">Rodar</button>
+    </div>
+    <div class="lanes">
+      <div class="lane rip">
+        <div class="lane-h"><h3>RAG RIPEAM</h3><span>chat_ripeam.py + app.py</span></div>
+        <div class="strip" id="stripR"></div>
+        <ol class="steps" id="stepsR"></ol>
+        <div class="out" id="outR"></div>
+      </div>
+      <div class="lane te">
+        <div class="lane-h"><h3>TE-251</h3><span>harness v0.2 · modo carro</span></div>
+        <div class="strip" id="stripT"></div>
+        <ol class="steps" id="stepsT"></ol>
+        <div class="out" id="outT"></div>
+      </div>
+    </div>
+    <p class="lesson" id="lesson"></p>
+  </section>
+
+  <section aria-label="Arquiteturas camada por camada">
+    <div class="eyebrow">Destrinchando</div>
+    <h2>As duas arquiteturas, camada por camada</h2>
+    <p class="lead">Do clique do usuário até a máquina que roda o modelo. Onde aparece “nuvem”, o TE-251 precisa de uma peça local no lugar.</p>
+  </section>
+  <div class="tbl">
+    <table>
+      <thead><tr><th></th><th class="rip">RAG RIPEAM</th><th class="te">TE-251 (A5)</th></tr></thead>
+      <tbody>
+        <tr><th>Pergunta típica</th><td>“Que luzes um arrasteiro exibe à noite?”</td><td>“Qual a temperatura do motor agora?”</td></tr>
+        <tr><th>Fonte de verdade</th><td>PDF do RIPEAM. Não muda; indexado uma vez.</td><td>OBD2 da SW4 gravado no SQLite a cada segundo, mais uma base pequena (limites, tabela DTC, manual).</td></tr>
+        <tr><th>Interface</th><td>Streamlit, porta 8503, histórico em <code>st.session_state</code>.</td><td>Página web do harness (porta 8090), HMT-1 por voz no carro, navegador e telão no teatro. Open WebUI cogitada para a sala.</td></tr>
+        <tr><th>Orquestração</th><td>LangGraph <code>StateGraph</code> com um nó só: busca e responde.</td><td>Laço do harness: até 6 rodadas LLM ↔ ferramentas, depois checagem.</td></tr>
+        <tr><th>Quando busca contexto</th><td>Sempre. Toda pergunta puxa 3 trechos, faça sentido ou não.</td><td>Quando o modelo pede. Ele escolhe entre 6 ferramentas (<code>get_vehicle_state</code>, <code>get_history</code>, <code>get_dtcs</code>, <code>fuel_range</code>, <code>search_kb</code>, <code>get_link_status</code>).</td></tr>
+        <tr><th>Recuperação</th><td>PyPDFLoader → chunks de 1000 com 50 de sobreposição → OpenAIEmbeddings <span class="tag bad">nuvem</span> → Chroma → <code>similarity_search(k=3)</code>.</td><td>Consulta direta no SQLite para telemetria, lookup exato para código DTC, busca no texto para o manual (v0 por palavras; depois bge-m3 local) <span class="tag ok">local</span>.</td></tr>
+        <tr><th>Modelo</th><td>gpt-4o-mini via API, temperatura 0,7 <span class="tag bad">nuvem</span></td><td>Ollama na GPU local, qwen2.5:7b ou GGUF te251 próprio, temperatura 0,2 <span class="tag ok">local</span></td></tr>
+        <tr><th>Memória da conversa</th><td>Histórico achatado numa string só (<code>build_messages_string</code>).</td><td>Lista de mensagens com papéis (usuário, assistente, ferramenta), que o tool calling exige.</td></tr>
+        <tr><th>Tempo</th><td>Não existe: o texto não envelhece.</td><td>Todo valor tem <code>idade_s</code>. Limite de 5 s no carro e 15 s no teatro; acima disso a resposta avisa.</td></tr>
+        <tr><th>Proteções</th><td>Só o prompt de grounding.</td><td>Grounding, checagem de números, aviso de idade, resposta por regras se o LLM falhar, barramento só leitura.</td></tr>
+        <tr><th>Rede</th><td>Sem internet, nada funciona (embeddings e modelo estão fora).</td><td>A IA não usa internet. O 4G só leva a réplica do carro ao teatro (MQTT + Tailscale).</td></tr>
+        <tr><th>Implantação</th><td>Uma máquina, um processo, índice recriado a cada partida (sem <code>persist_directory</code>).</td><td>Duas máquinas com GPU, o mesmo GGUF, o mesmo código com <code>TE251_MODO=carro|teatro</code>; coletor e enlace rodam como processos à parte.</td></tr>
+        <tr><th>Dependências</th><td>LangChain 0.3, LangGraph, langchain-openai, Chroma, Streamlit.</td><td>Python padrão + python-OBD + paho-mqtt; Ollama como serviço.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <section class="reuse" aria-label="Reaproveitamento">
+    <div>
+      <h3>Leve do RIPEAM para o TE-251</h3>
+      <ul>
+        <li>O pipeline de RAG, como a ferramenta <code>search_kb</code> sobre o manual da SW4, trocando OpenAIEmbeddings por bge-m3 no Ollama e persistindo o Chroma.</li>
+        <li>O prompt de grounding e a ideia de pôr data e hora no SystemMessage (no TE-251, a hora da leitura).</li>
+        <li><code>langchain-ollama</code>, que o grupo já instalou: trocar o modelo é uma linha.</li>
+        <li>Streamlit ou LangGraph, se o grupo preferir a eles o servidor simples do harness.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Deixe para trás</h3>
+      <ul>
+        <li>gpt-4o-mini e OpenAIEmbeddings: violam a regra de IA 100% local.</li>
+        <li>Temperatura 0,7: para dado de carro, use 0 a 0,2.</li>
+        <li>Histórico em string única: quebra o tool calling.</li>
+        <li>Tabela de códigos dentro do vetor: busca por semelhança confunde P0299 com P0229.</li>
+        <li>A chave <code>sk-proj-…</code> escrita no código: revogue em platform.openai.com.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section aria-label="Onde entra o Python">
+    <div class="eyebrow">Sua pergunta</div>
+    <h2>Onde entra o script Python, se temos Ollama e Open WebUI?</h2>
+    <p class="lead">Cada peça tem um papel só. O Ollama roda o modelo e não sabe nada do carro. A Open WebUI é uma tela de chat. O Python é o que liga a SW4 ao modelo: ele coleta, guarda, busca o dado certo, confere a resposta e replica para o teatro. Sem ele, a Open WebUI conversa com um modelo que inventa a temperatura.</p>
+  </section>
+  <div class="py">
+    <div class="stack" aria-label="Pilha recomendada">
+      <div class="row2">
+        <div class="layer ui"><h3>Open WebUI</h3><p>Turma no teatro, no navegador ou no telão. Porta 8080.</p></div>
+        <div class="layer ui"><h3>Página do HMT-1</h3><p>Operador no carro, por voz. Tela de 854×480; a Open WebUI é pesada demais aqui.</p></div>
+      </div>
+      <div class="arrow">API compatível com OpenAI · <code>/v1/chat/completions</code> · modelo “te251”</div>
+      <div class="layer hb">
+        <h3>Harness Python (o nosso script)</h3>
+        <ul>
+          <li>monta o prompt do modo carro ou teatro</li>
+          <li>executa as 6 ferramentas no SQLite e na base</li>
+          <li>confere números e idade do dado; cai para as regras se reprovar</li>
+        </ul>
+      </div>
+      <div class="arrow">chamadas locais</div>
+      <div class="row2">
+        <div class="layer oll"><h3>Ollama</h3><p>Só roda o modelo na GPU: <code>/api/chat</code> com <code>tools</code>, em 127.0.0.1:11434.</p></div>
+        <div class="layer hb"><h3>Coletor e enlace (Python)</h3><p><code>coletor.py</code> lê o OBD2 e grava no SQLite; <code>enlace.py</code> replica pelo MQTT.</p></div>
+      </div>
+    </div>
+
+    <div class="opts">
+      <div class="opt rec">
+        <div class="opt-h"><h3>A. Open WebUI aponta para o harness</h3><span class="pill ok">recomendado</span></div>
+        <p>O harness ganha uma rota no formato da OpenAI. Na Open WebUI, em Conexões, você cadastra <code>http://localhost:8090/v1</code>; o modelo “te251” aparece na lista. Toda pergunta da turma passa pelas ferramentas e pela checagem, e a mesma lógica atende o HMT-1.</p>
+        <pre class="code"># web.py (esboço)
+POST /v1/chat/completions
+  msgs = corpo["messages"]
+  r = harness.perguntar(msgs[-1]["content"],
+                        historico=msgs[:-1])
+  devolve {"choices":[{"message":
+    {"role":"assistant","content":r["resposta"]}}]}</pre>
+      </div>
+      <div class="opt">
+        <div class="opt-h"><h3>B. Ferramentas dentro da Open WebUI</h3><span class="pill warn">funciona, com custo</span></div>
+        <p class="muted">A Open WebUI aceita Tools e Functions escritas em Python. Dá para colar as ferramentas lá e fazer a checagem num filtro de saída. O problema é que a lógica fica presa à Open WebUI: o HMT-1 e os testes automáticos ficam de fora, e o código passa a viver em dois lugares.</p>
+      </div>
+      <div class="opt">
+        <div class="opt-h"><h3>C. Open WebUI direto no Ollama</h3><span class="pill bad">só para testar o modelo</span></div>
+        <p class="muted">É o padrão de instalação. Serve para conversar com o modelo e comparar versões, mas ele não tem acesso ao carro: qualquer número que ele der é inventado.</p>
+      </div>
+    </div>
+  </div>
+
+  <p class="foot">Simulação didática. Os passos do RIPEAM seguem o código do <code>.rar</code> (chunks 1000/50, k=3, gpt-4o-mini a 0,7, LangGraph de um nó); os do TE-251 seguem o harness v0.2. Os trechos de manual e os valores do carro são ilustrativos. A rota <code>/v1/chat/completions</code> ainda não existe no harness: é a próxima mudança proposta.</p>
+</div>
+
+<script>
+(function(){
+"use strict";
+var COMP_R=[["Streamlit"],["LangGraph · 1 nó"],["OpenAI Embeddings","nuvem"],["Chroma"],["gpt-4o-mini","nuvem"]];
+var COMP_T=[["HMT-1 / web"],["Harness Python"],["Ollama","local"],["Ferramentas + SQLite"],["Checagem"]];
+
+// Cada passo: [componente, título, corpo, estado, nota]
+var SC={
+ temp:{label:"Valor ao vivo",q:"Qual a temperatura do motor agora?",sub:"Pergunta sobre o estado do carro neste instante.",
+  R:[[0,"Streamlit recebe a pergunta","Vai para o grafo com o histórico.","ok"],
+     [1,"Histórico vira uma string só","<code>build_messages_string</code> junta tudo num texto de usuário.","ok"],
+     [2,"Pergunta vira vetor","OpenAIEmbeddings manda o texto para a API.","warn","Sai do computador."],
+     [3,"Chroma devolve 3 trechos","<pre class=\"json\">1. Temperatura do líquido de arrefecimento: faixa normal de 80 a 105 °C…\n2. Nunca abrir o reservatório com o motor quente.\n3. Rotação do motor: marcha lenta entre 650 e 850 rpm…</pre>","ok"],
+     [4,"gpt-4o-mini responde (T = 0,7)","“A temperatura normal do motor fica entre 80 e 105 °C. No momento ela deve estar dentro dessa faixa.”","bad","O manual não sabe o valor de agora. “Deve estar” é palpite."],
+     [4,"Sem checagem","A resposta vai direto para a tela.","bad"]],
+  outR:["bad","Responde a faixa do manual, não a temperatura atual.","Nenhum número vem do carro."],
+  T:[[0,"HMT-1 envia a pergunta","Voz → texto → harness, pela LAN do carro.","ok"],
+     [1,"Harness monta o contexto","Prompt do modo carro + esquema das 6 ferramentas.","ok"],
+     [2,"Ollama decide","<pre class=\"json\">get_vehicle_state({\"pids\":[\"COOLANT_TEMP\"]})</pre>","ok"],
+     [3,"Ferramenta lê o SQLite","<pre class=\"json\">{\"valor\": 89.2, \"unidade\": \"°C\", \"idade_s\": 1.0,\n \"faixa_normal\": [80, 105]}</pre>","ok"],
+     [2,"Ollama redige","“Está em 89,2 °C, dentro da faixa de 80 a 105 °C. Leitura de 1,0 s atrás.”","ok"],
+     [4,"Checagem","89,2 · 80 · 105 · 1,0 têm fonte. Idade 1,0 s, limite 5 s.","ok"]],
+  outT:["ok","Está em 89,2 °C, dentro da faixa de 80 a 105 °C. Leitura de 1,0 s atrás.","fonte: LLM te251 local · números conferidos"],
+  lesson:"RAG de documento não alcança dado vivo. É para isso que o TE-251 tem ferramentas: o modelo pede o valor, o harness entrega com a idade, e a checagem barra número sem fonte."},
+ dtc:{label:"Código exato",q:"O que significa o código P0299?",sub:"Pergunta de consulta, mas com um identificador exato.",
+  R:[[0,"Streamlit recebe a pergunta","","ok"],[1,"Histórico vira uma string só","","ok"],
+     [2,"Pergunta vira vetor","OpenAIEmbeddings, na nuvem.","warn","Sai do computador."],
+     [3,"Chroma devolve 3 trechos","Num manual com centenas de códigos, a semelhança de vetor trata P0299 e P0229 quase como iguais.<pre class=\"json\">1. P0229 Sensor de posição do pedal C, circuito intermitente…\n2. P0087 Pressão do rail de combustível baixa…\n3. P0299 Turbo com subalimentação (underboost)…</pre>","warn","O trecho certo veio em 3º."],
+     [4,"gpt-4o-mini responde (T = 0,7)","“O código P0299 está ligado ao sensor de posição do pedal e à pressão de combustível…”","bad","Misturou os trechos."],
+     [4,"Sem checagem","Códigos não são números, mas nada confere se o código citado é o mesmo da pergunta.","bad"]],
+  outR:["bad","Resposta misturada a partir de códigos vizinhos.","Busca por semelhança é ruim para identificador exato."],
+  T:[[0,"Pergunta chega ao harness","","ok"],[1,"Harness monta o contexto","","ok"],
+     [2,"Ollama decide","<pre class=\"json\">search_kb({\"consulta\":\"P0299\"})</pre>","ok"],
+     [3,"Busca exata na tabela DTC","<pre class=\"json\">{\"fonte\": \"dtc.csv\", \"texto\": \"P0299, Turbo com subalimentação (underboost), media,\n Reduzir carga; verificar mangueiras de pressurização e atuador do turbo\"}</pre>","ok"],
+     [2,"Ollama redige","“P0299 é turbo com subalimentação, gravidade média. Reduza a carga e verifique as mangueiras de pressurização e o atuador do turbo.”","ok"],
+     [4,"Checagem","Sem números soltos; o código é ignorado pela checagem. Dado de tabela, sem idade.","ok"]],
+  outT:["ok","P0299 é turbo com subalimentação, gravidade média. Reduza a carga e verifique as mangueiras de pressurização e o atuador do turbo.","fonte: dtc.csv via search_kb"],
+  lesson:"Tabela de códigos não vai para o banco vetorial. Lookup exato acerta sempre; o vetor fica para o texto corrido do manual."},
+ rip:{label:"Pergunta do RIPEAM",q:"Que luzes um barco de pesca de arrasto exibe à noite?",sub:"O terreno do RIPEAM: uma regra escrita num documento.",
+  R:[[0,"Streamlit recebe a pergunta","","ok"],[1,"Histórico vira uma string só","","ok"],
+     [2,"Pergunta vira vetor","OpenAIEmbeddings, na nuvem.","warn","Sai do computador."],
+     [3,"Chroma devolve 3 trechos","<pre class=\"json\">1. Regra 26 (b): uma embarcação engajada na pesca de arrasto deve exibir duas luzes circulares em linha vertical, a superior verde e a inferior branca…\n2. Regra 26 (b)(ii): uma luz de mastro a ré e acima da luz verde…\n3. Regra 20: aplicação das regras sobre luzes…</pre>","ok"],
+     [4,"gpt-4o-mini responde","“Duas luzes circulares em linha vertical, verde em cima e branca embaixo; com seguimento, também luzes de bordos e de alcançado.”","ok","Pergunta de documento: o RAG é a ferramenta certa."],
+     [4,"Sem checagem","Aqui o risco é baixo: o texto está no contexto.","ok"]],
+  outR:["ok","Duas luzes circulares em linha vertical, verde sobre branca; com seguimento, também luzes de bordos e de alcançado.","fonte: Regra 26 do RIPEAM"],
+  T:[[0,"Pergunta chega ao harness","","ok"],[1,"Harness monta o contexto","","ok"],
+     [2,"Ollama decide","<pre class=\"json\">search_kb({\"consulta\":\"luzes barco pesca arrasto\"})</pre>","ok"],
+     [3,"Busca na base da SW4","<pre class=\"json\">{\"consulta\": \"luzes barco pesca arrasto\", \"trechos\": []}</pre>","warn","Nada na base: ela é sobre a SW4."],
+     [2,"Ollama redige","“Não tenho essa informação. Respondo sobre a Toyota SW4 do projeto.”","ok"],
+     [4,"Checagem","Sem números. Resposta aceita.","ok"]],
+  outT:["warn","Não tenho essa informação. Respondo sobre a Toyota SW4 do projeto.","fora do domínio · o harness admite em vez de inventar"],
+  lesson:"Para pergunta sobre documento, o RAG do RIPEAM é a peça certa. No TE-251 ele vira só uma das 6 ferramentas (search_kb), apontada para o manual da SW4."},
+ off:{label:"Sem internet",q:"Qual a temperatura do motor agora? (4G caiu)",sub:"A SW4 entra numa área sem sinal no trajeto.",
+  R:[[0,"Streamlit recebe a pergunta","","ok"],[1,"Histórico vira uma string só","","ok"],
+     [2,"Pergunta vira vetor","<pre class=\"json\">openai.APIConnectionError: Connection error.</pre>","bad","Sem internet não há embedding."],
+     [3,"Chroma não é consultado","O fluxo parou no passo anterior. E como o índice é recriado a cada partida, o app nem sobe sem internet.","bad"],
+     [4,"gpt-4o-mini inacessível","O modelo também está na nuvem.","bad"],
+     [4,"Sem resposta","","bad"]],
+  outR:["bad","Erro de conexão. Nenhuma resposta.","tudo que pensa está fora do computador"],
+  T:[[0,"HMT-1 envia a pergunta","A LAN do carro não depende do 4G.","ok"],
+     [1,"Harness monta o contexto","","ok"],
+     [2,"Ollama decide","Roda na GPU do notebook do carro.<pre class=\"json\">get_vehicle_state({\"pids\":[\"COOLANT_TEMP\"]})</pre>","ok"],
+     [3,"Ferramenta lê o SQLite","<pre class=\"json\">{\"valor\": 89.6, \"idade_s\": 0.8}</pre>O coletor continua gravando; o enlace guarda as leituras para mandar depois.","ok"],
+     [2,"Ollama redige","“Está em 89,6 °C, dentro da faixa normal. Leitura de 0,8 s atrás.”","ok"],
+     [4,"Checagem","Números conferidos. No teatro, a réplica para e as respostas de lá passam a avisar a idade.","ok"]],
+  outT:["ok","Está em 89,6 °C, dentro da faixa normal. Leitura de 0,8 s atrás.","fonte: LLM te251 local · modo tandem, operador nem percebe"],
+  lesson:"É o motivo de a regra ser IA 100% local: no carro a internet só serve para mandar a cópia ao teatro, e a falta dela não tira a IA do ar."}
+};
+
+var cur="temp",busy=false;
+var scenEl=document.getElementById("scen");
+Object.keys(SC).forEach(function(k){var b=document.createElement("button");b.type="button";b.textContent=SC[k].label;b.dataset.k=k;b.setAttribute("aria-pressed",String(k===cur));
+  b.addEventListener("click",function(){if(busy)return;cur=k;[].forEach.call(scenEl.children,function(x){x.setAttribute("aria-pressed",String(x===b));});prep();});scenEl.appendChild(b);});
+
+function strip(id,comps){var e=document.getElementById(id);e.innerHTML="";comps.forEach(function(c){var s=document.createElement("span");s.className="comp";s.innerHTML=c[0]+(c[1]?" <i>"+c[1]+"</i>":"");e.appendChild(s);});}
+function steps(id,list){var e=document.getElementById(id);e.innerHTML="";list.forEach(function(s){var li=document.createElement("li");li.className="idle";
+  li.innerHTML='<div><div class="st-t">'+s[1]+'</div><div class="st-b">'+(s[2]||"")+(s[4]?'<span class="note '+s[3]+'">'+s[4]+'</span>':"")+'</div></div>';e.appendChild(li);});}
+function prep(){var s=SC[cur];
+  document.getElementById("qText").innerHTML=s.q.replace(/</g,"&lt;")+"<small>"+s.sub+"</small>";
+  strip("stripR",COMP_R);strip("stripT",COMP_T);steps("stepsR",s.R);steps("stepsT",s.T);
+  ["outR","outT"].forEach(function(id){var o=document.getElementById(id);o.className="out";o.innerHTML='<div class="eyebrow">resposta</div><div style="color:var(--muted)">Aperte Rodar.</div>';});
+  document.getElementById("lesson").textContent=s.lesson;
+}
+function hl(stripId,idx,dead){[].forEach.call(document.getElementById(stripId).children,function(c,i){c.classList.toggle("on",i===idx);if(dead&&i===idx)c.classList.add("dead");});}
+function out(id,o){var e=document.getElementById(id);e.className="out "+o[0];e.innerHTML='<div class="eyebrow">resposta</div><div>'+o[1]+'</div><div class="verd">'+o[2]+'</div>';}
+function wait(ms){return new Promise(function(r){setTimeout(r,ms)});}
+var reduce=window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+async function run(){busy=true;var b=document.getElementById("btnRun");b.disabled=true;prep();var s=SC[cur],n=Math.max(s.R.length,s.T.length),D=reduce?0:850;
+  for(var i=0;i<n;i++){
+    [["R","stepsR","stripR"],["T","stepsT","stripT"]].forEach(function(x){var st=s[x[0]][i];if(!st)return;var li=document.getElementById(x[1]).children[i];
+      li.className="on";hl(x[2],st[0],cur==="off"&&x[0]==="R"&&st[3]==="bad"&&(st[0]===2||st[0]===4));});
+    await wait(D);
+    [["R","stepsR"],["T","stepsT"]].forEach(function(x){var st=s[x[0]][i];if(st)document.getElementById(x[1]).children[i].className=st[3];});
+  }
+  hl("stripR",-1);hl("stripT",-1);out("outR",s.outR);out("outT",s.outT);busy=false;b.disabled=false;}
+document.getElementById("btnRun").addEventListener("click",function(){if(!busy)run();});
+prep();
+// abre já com o primeiro cenário rodado, para a página não começar vazia
+(function(){var s=SC[cur];["R","T"].forEach(function(k){var ol=document.getElementById("steps"+k);s[k].forEach(function(st,i){ol.children[i].className=st[3];});});out("outR",s.outR);out("outT",s.outT);})();
+})();
+</script>

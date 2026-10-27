@@ -1,0 +1,578 @@
+<title>Simulador TE-251</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Source+Sans+3:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: painel de bancada — diagrama A5 em cima (o "esquema elétrico" do projeto), console de pergunta e telemetria embaixo, lado a lado. */
+:root{
+  --bg:#ECEFF0; --surface:#FFFFFF; --sunk:#F5F7F7; --ink:#14232B; --muted:#5B6C74; --line:#C6D0D4;
+  --car:#0E6B77; --car-soft:#DCEEF0; --thr:#7B3B6D; --thr-soft:#F2E3EE;
+  --data:#C77D00; --ok:#2C8250; --warn:#B86A00; --bad:#B8362A;
+  --f-disp:"Barlow Condensed","Arial Narrow",Arial,sans-serif;
+  --f-body:"Source Sans 3","Segoe UI",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0D1417; --surface:#152025; --sunk:#111A1E; --ink:#E2EBED; --muted:#91A3AA; --line:#2B3B42;
+  --car:#47B9C5; --car-soft:#14343A; --thr:#D58AC4; --thr-soft:#3A2035;
+  --data:#F0B23C; --ok:#5CC487; --warn:#F0A43C; --bad:#F07264; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0D1417; --surface:#152025; --sunk:#111A1E; --ink:#E2EBED; --muted:#91A3AA; --line:#2B3B42;
+  --car:#47B9C5; --car-soft:#14343A; --thr:#D58AC4; --thr-soft:#3A2035;
+  --data:#F0B23C; --ok:#5CC487; --warn:#F0A43C; --bad:#F07264; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5}
+.wrap{max-width:1180px;margin:0 auto;padding-block:20px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:18px}
+h1,h2,h3{font-family:var(--f-disp);font-weight:600;letter-spacing:.01em;text-wrap:balance;margin:0}
+h1{font-size:clamp(30px,5vw,44px);line-height:1}
+h2{font-size:22px}
+.eyebrow{font-family:var(--f-mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
+header p{margin:6px 0 0;max-width:68ch;color:var(--muted)}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+button,select{font:inherit;font-size:14px;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:7px 12px;cursor:pointer}
+button:hover{border-color:var(--muted)}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--data);outline-offset:2px}
+button.primary{background:var(--ink);color:var(--bg);border-color:var(--ink);font-weight:600}
+button.cut{border-color:var(--bad);color:var(--bad);font-weight:600}
+button.cut.restore{border-color:var(--ok);color:var(--ok)}
+button:disabled{opacity:.5;cursor:default}
+.speed{display:flex;gap:0}
+.speed button{border-radius:0;margin-left:-1px;font-family:var(--f-mono);font-size:12px}
+.speed button:first-child{border-radius:6px 0 0 6px}
+.speed button:last-child{border-radius:0 6px 6px 0}
+.speed button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+
+.board{background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.diag{overflow-x:auto}
+.diag svg{display:block;width:100%;min-width:760px;height:auto}
+.diag-foot{display:flex;flex-wrap:wrap;gap:8px 18px;padding:10px 16px;border-top:1px solid var(--line);font-size:13px;color:var(--muted)}
+.key{display:inline-flex;align-items:center;gap:6px}
+.dot{width:10px;height:10px;border-radius:50%;display:inline-block}
+
+svg text{font-family:var(--f-body);fill:var(--ink)}
+.zone{fill:var(--sunk);stroke:var(--line)}
+.zlabel{font-family:var(--f-mono);font-size:10.5px;letter-spacing:.12em;fill:var(--muted)}
+.node rect.box{fill:var(--surface);stroke:var(--line);stroke-width:1.5}
+.node{cursor:pointer}
+.node:hover rect.box,.node:focus rect.box{stroke:var(--muted)}
+.node:focus{outline:none}
+.node .t{font-family:var(--f-disp);font-weight:600;font-size:17px}
+.node .s{font-size:11.5px;fill:var(--muted)}
+.node.car rect.box{stroke:var(--car)}
+.node.thr rect.box{stroke:var(--thr)}
+.node.sel rect.box{stroke-width:3}
+.node.glow rect.box{stroke:var(--data);stroke-width:3}
+.chip rect{fill:var(--car-soft);stroke:none}
+.node.thr .chip rect{fill:var(--thr-soft)}
+.chip text{font-size:12px}
+.chip text.v{font-family:var(--f-mono);font-size:11px;fill:var(--muted)}
+.chip.glow rect{fill:var(--data)}
+.chip.glow text{fill:#1A1206}
+.link{fill:none;stroke:var(--muted);stroke-width:2}
+.link.down{stroke:var(--bad);stroke-dasharray:5 5}
+.llabel{font-family:var(--f-mono);font-size:10px;fill:var(--muted)}
+.tunnel{fill:none;stroke:var(--car);stroke-width:7;opacity:.18;stroke-linecap:round}
+.tunnel.down{stroke:var(--bad)}
+.tlabel{font-family:var(--f-mono);font-size:10.5px;fill:var(--car)}
+.badge rect{fill:var(--data)}
+.badge text{font-family:var(--f-mono);font-size:11px;font-weight:600;fill:#1A1206}
+.cutmark{stroke:var(--bad);stroke-width:4;stroke-linecap:round}
+.dim{opacity:.38}
+
+.grid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:18px;align-items:start}
+@media (max-width:900px){.grid{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.panel-h{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
+.form{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 12px;align-items:center}
+.form label{font-size:13px;color:var(--muted)}
+.form select{width:100%}
+.check{display:flex;gap:8px;align-items:center;font-size:14px;grid-column:1 / -1}
+.origin{display:flex;gap:0}
+.origin button{border-radius:0;margin-left:-1px;flex:1}
+.origin button:first-child{border-radius:6px 0 0 6px}
+.origin button:last-child{border-radius:0 6px 6px 0}
+.origin button[aria-pressed="true"][data-o="carro"]{background:var(--car);border-color:var(--car);color:var(--bg)}
+.origin button[aria-pressed="true"][data-o="teatro"]{background:var(--thr);border-color:var(--thr);color:var(--bg)}
+
+ol.steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:0;counter-reset:s}
+ol.steps li{display:grid;grid-template-columns:28px minmax(0,1fr);gap:10px;padding:10px 0;border-top:1px solid var(--line);counter-increment:s}
+ol.steps li::before{content:counter(s);font-family:var(--f-mono);font-size:12px;width:24px;height:24px;border-radius:50%;border:1.5px solid var(--line);display:grid;place-items:center;color:var(--muted)}
+ol.steps li.on::before{border-color:var(--data);color:var(--ink);background:var(--data)}
+ol.steps li.done::before{border-color:var(--ok);color:var(--ok)}
+ol.steps li.fail::before{border-color:var(--bad);color:var(--bad)}
+ol.steps li.idle{opacity:.45}
+.st-t{font-weight:600}
+.st-b{font-size:13.5px;color:var(--muted);margin-top:2px}
+pre.json{font-family:var(--f-mono);font-size:11.5px;background:var(--sunk);border:1px solid var(--line);border-radius:6px;padding:8px 10px;margin:6px 0 0;overflow-x:auto;white-space:pre;color:var(--ink)}
+.draft{margin-top:6px;padding:8px 10px;border-left:3px solid var(--line);background:var(--sunk);font-size:14px;color:var(--ink)}
+.num{font-family:var(--f-mono);font-size:12.5px;padding:0 4px;border-radius:4px}
+.num.ok{background:color-mix(in srgb,var(--ok) 22%,transparent);color:var(--ink)}
+.num.bad{background:color-mix(in srgb,var(--bad) 28%,transparent);color:var(--ink);text-decoration:line-through}
+.answer{border:1.5px solid var(--ok);border-radius:8px;padding:12px 14px;background:color-mix(in srgb,var(--ok) 8%,var(--surface))}
+.answer.fallback{border-color:var(--warn);background:color-mix(in srgb,var(--warn) 8%,var(--surface))}
+.answer .src{font-family:var(--f-mono);font-size:11px;color:var(--muted);margin-top:6px}
+.pill{display:inline-flex;align-items:center;gap:6px;font-family:var(--f-mono);font-size:11.5px;padding:2px 8px;border-radius:999px;border:1px solid currentColor}
+.pill.ok{color:var(--ok)} .pill.warn{color:var(--warn)} .pill.bad{color:var(--bad)}
+
+.side{display:flex;flex-direction:column;gap:12px}
+.twin{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
+.twin > div{border:1px solid var(--line);border-radius:8px;padding:10px;min-width:0}
+.twin .car{border-top:3px solid var(--car)}
+.twin .thr{border-top:3px solid var(--thr)}
+.twin h3{font-size:16px}
+dl.vals{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px 8px;margin:8px 0 0;font-size:13px}
+dl.vals dt{color:var(--muted)}
+dl.vals dd{margin:0;font-family:var(--f-mono);font-variant-numeric:tabular-nums;text-align:right}
+.age{margin-top:8px;font-family:var(--f-mono);font-size:12px}
+.states{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.states div{border:1px solid var(--line);border-radius:6px;padding:6px 7px;font-size:11.5px;color:var(--muted);min-width:0}
+.states b{display:block;font-family:var(--f-mono);font-size:11px;letter-spacing:.04em;color:var(--ink);overflow-wrap:anywhere}
+.states div.cur{border-color:var(--data);background:color-mix(in srgb,var(--data) 14%,transparent);color:var(--ink)}
+@media (max-width:520px){.states{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.counters{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.counters div{background:var(--sunk);border-radius:6px;padding:8px}
+.counters span{display:block;font-size:11.5px;color:var(--muted)}
+.counters b{font-family:var(--f-mono);font-size:18px;font-variant-numeric:tabular-nums}
+.log{font-family:var(--f-mono);font-size:11.5px;color:var(--muted);max-height:120px;overflow:auto;background:var(--sunk);border-radius:6px;padding:8px;display:flex;flex-direction:column;gap:2px}
+.log .e{color:var(--ink)}
+
+.info{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px}
+@media (max-width:760px){.info{grid-template-columns:minmax(0,1fr)}}
+.info p{margin:6px 0 0;max-width:65ch}
+.info code{font-family:var(--f-mono);font-size:12.5px;background:var(--sunk);padding:1px 5px;border-radius:4px}
+.rules{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px;font-size:14px}
+.foot{font-size:12.5px;color:var(--muted);max-width:90ch}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <div class="eyebrow">Projeto TE-251 · ITA · arquitetura A5</div>
+      <h1>Simulador TE-251</h1>
+      <p>A SW4 manda telemetria pelo OBD2 ao notebook do carro, que responde ao operador sem internet. O 4G só carrega a cópia dos dados até o Teatro Weiss, onde outra IA local responde à turma. Faça uma pergunta e derrube o 4G para ver o modo tandem.</p>
+    </div>
+    <div class="controls">
+      <button id="btnPlay" type="button" aria-pressed="false">Pausar</button>
+      <button id="btnCut" class="cut" type="button">Cortar o 4G</button>
+      <div class="speed" role="group" aria-label="Velocidade da simulação">
+        <button type="button" data-s="1" aria-pressed="true">1×</button>
+        <button type="button" data-s="4" aria-pressed="false">4×</button>
+        <button type="button" data-s="12" aria-pressed="false">12×</button>
+      </div>
+    </div>
+  </header>
+
+  <section class="board" aria-label="Diagrama da arquitetura">
+    <div class="diag"><svg id="svg" viewBox="0 0 1100 492" role="img" aria-label="Arquitetura A5 do TE-251: SW4, OBDLink, notebook do carro, roteador OpenWrt, HMT-1, celular 4G, internet, rede do ITA, notebook do teatro e turma"></svg></div>
+    <div class="diag-foot">
+      <span class="key"><span class="dot" style="background:var(--data)"></span>leitura OBD2 / mensagem MQTT</span>
+      <span class="key"><span class="dot" style="background:var(--car)"></span>lado do carro</span>
+      <span class="key"><span class="dot" style="background:var(--thr)"></span>lado do teatro</span>
+      <span>Clique em qualquer peça para ver o que ela faz.</span>
+    </div>
+  </section>
+
+  <div class="grid">
+    <section class="panel" aria-label="Pergunta pelo harness">
+      <div class="panel-h">
+        <h2>Uma pergunta pelo harness</h2>
+        <span class="eyebrow" id="modeTag">TE251_MODO=carro</span>
+      </div>
+      <div class="form">
+        <label>Quem pergunta</label>
+        <div class="origin" role="group" aria-label="Quem pergunta">
+          <button type="button" data-o="carro" aria-pressed="true">Operador no carro</button>
+          <button type="button" data-o="teatro" aria-pressed="false">Turma no teatro</button>
+        </div>
+        <label for="q">Pergunta</label>
+        <select id="q"></select>
+        <label class="check"><input type="checkbox" id="halluc"> Fazer o LLM inventar um número (testa a checagem)</label>
+      </div>
+      <div><button id="btnAsk" class="primary" type="button">Perguntar</button></div>
+      <ol class="steps" id="steps"></ol>
+      <div id="answerBox"></div>
+    </section>
+
+    <aside class="side">
+      <section class="panel" aria-label="Enlace e réplica">
+        <div class="panel-h"><h2>Enlace carro → teatro</h2><span class="pill ok" id="linkPill">ONLINE</span></div>
+        <div class="states" id="states">
+          <div data-k="ONLINE"><b>ONLINE</b>MQTT ao vivo, atraso de ~1 s</div>
+          <div data-k="DEGRADADO"><b>DEGRADADO</b>sinal falhando, mensagens retidas</div>
+          <div data-k="TANDEM"><b>TANDEM</b>cada lado sozinho; carro guarda tudo</div>
+          <div data-k="RESSINC"><b>RESSINCRONIZAÇÃO</b>enviando o que ficou guardado</div>
+        </div>
+        <div class="counters">
+          <div><span>leituras no carro</span><b id="cCar">0</b></div>
+          <div><span>na réplica do teatro</span><b id="cThr">0</b></div>
+          <div><span>guardadas p/ enviar</span><b id="cBuf">0</b></div>
+        </div>
+        <div class="twin">
+          <div class="car"><h3>Carro · ao vivo</h3><dl class="vals" id="valsCar"></dl><div class="age" id="ageCar"></div></div>
+          <div class="thr"><h3>Teatro · réplica</h3><dl class="vals" id="valsThr"></dl><div class="age" id="ageThr"></div></div>
+        </div>
+        <div class="log" id="log" aria-live="polite"></div>
+      </section>
+    </aside>
+  </div>
+
+  <section class="panel info" aria-label="Detalhe da peça">
+    <div>
+      <div class="eyebrow" id="infoSide">peça selecionada</div>
+      <h2 id="infoTitle"></h2>
+      <p id="infoBody"></p>
+      <p id="infoCode"></p>
+    </div>
+    <div>
+      <div class="eyebrow">regras que valem nos dois lados</div>
+      <ul class="rules">
+        <li>IA 100% local: Ollama com o mesmo GGUF no carro e no teatro. A internet só transporta dados.</li>
+        <li>Barramento só leitura: o sistema nunca manda comando para a ECU.</li>
+        <li>O motorista não usa a IA. Quem pergunta no carro é o operador, pelo HMT-1.</li>
+        <li>Todo número da resposta tem de vir de uma ferramenta. Número sem fonte reprova a resposta.</li>
+        <li>Toda resposta diz há quanto tempo o dado foi lido. No teatro o limite é 15 s; no carro, 5 s.</li>
+      </ul>
+    </div>
+  </section>
+
+  <p class="foot">Simulação didática com valores fictícios, gerados no navegador; nada aqui conversa com o carro. Ferramentas, limites e estados seguem o harness v0.2 (<code>te251/ferramentas.py</code>, <code>guardrails.py</code>, <code>enlace.py</code>). Limites de temperatura e tensão são genéricos e ainda precisam ser conferidos no manual da SW4.</p>
+</div>
+
+<script>
+(function(){
+"use strict";
+var NS="http://www.w3.org/2000/svg", svg=document.getElementById("svg");
+function el(tag,attrs,parent,text){var e=document.createElementNS(NS,tag);for(var k in attrs)e.setAttribute(k,attrs[k]);if(text!=null)e.textContent=text;(parent||svg).appendChild(e);return e;}
+
+/* ---------- peças ---------- */
+var NODES={
+ ecu:{x:30,y:50,w:140,h:62,t:"ECU da SW4",s:"porta OBD2 · só leitura",side:"car",
+   info:["Lado do carro","A central do motor da Toyota SW4. Publica rotação, velocidade, temperatura, tensão, MAP, carga e nível de combustível por PIDs padrão do OBD2. O projeto só lê; nunca escreve no barramento.","No código: lista de PIDs em te251/config.py. O PID 2F (combustível) pode não existir na SW4; falta a varredura no carro."]},
+ obd:{x:30,y:170,w:140,h:62,t:"OBDLink EX",s:"USB · ~45 leituras/s",side:"car",
+   info:["Lado do carro","Adaptador OBD2 ligado por cabo USB ao notebook. Foi escolhido no lugar de um clone ELM327 Bluetooth, que faz cerca de 7 leituras por segundo e cai com facilidade.","No código: te251/coletor.py usa python-OBD para ler o adaptador."]},
+ nbc:{x:210,y:40,w:235,h:232,t:"Notebook do carro",s:"GPU · dono do banco",side:"car",
+   chips:[["coletor","Coletor Python"],["sqlite","SQLite (te251.db)"],["mqtt","Broker MQTT local"],["harness","Harness · modo carro"],["ollama","Ollama · GGUF te251"]],
+   info:["Lado do carro","O coração do sistema. O coletor grava cada leitura no SQLite e publica no MQTT. O harness recebe a pergunta do operador, chama o LLM local e as ferramentas, confere os números e devolve a resposta. Funciona igual com ou sem 4G.","No código: TE251_MODO=carro, web na porta 8090, Ollama em 127.0.0.1:11434 (padrão qwen2.5:7b; 3b se a GPU tiver 6 GB)."]},
+ hmt:{x:30,y:330,w:140,h:62,t:"HMT-1 RealWear",s:"voz · Wi-Fi 5 GHz",side:"car",
+   info:["Lado do carro","Tablet preso no capacete, controlado por voz. O operador fala, o áudio vira texto (faster-whisper), vai pela LAN ao harness, e a resposta volta na tela de 854×480 e falada (Piper TTS). Nada disso precisa de internet.","Ainda não implementado: a página leve do HMT-1 e o par whisper/Piper."]},
+ rtr:{x:210,y:330,w:235,h:62,t:"Roteador OpenWrt",s:"LAN do carro · Tailscale",side:"car",
+   info:["Lado do carro","Roteador de viagem (tipo GL.iNet) que cria a rede própria da SW4: cabo Ethernet para o notebook, Wi-Fi 5 GHz para o HMT-1. A VPN roda nele, configurada uma vez para a LAN inteira.","Atenção: o celular usa CGNAT, então o túnel precisa ser iniciado pelo carro (Tailscale, ou WireGuard até um servidor com IP público)."]},
+ cel:{x:470,y:330,w:85,h:62,t:"Celular",s:"4G · USB",side:"car",
+   info:["Lado do carro","A única saída do carro para a internet, emprestada ao roteador por USB tethering. Cabo é mais estável que hotspot e ainda carrega o aparelho.","OpenWrt precisa do driver certo: kmod-usb-net-rndis (Android) ou kmod-usb-net-ipheth (iPhone). Testar com o celular real (S06)."]},
+ net:{x:585,y:300,w:110,h:120,t:"Internet",s:"4G + CGNAT",side:"net",
+   info:["Transporte","Só carrega bytes criptografados entre o carro e o teatro. Nenhuma IA em nuvem participa: nada de OpenAI, Claude ou Gemini no caminho.","Item crítico: medir o sinal 4G no trajeto e a rede do ITA dentro do Teatro Weiss."]},
+ ita:{x:735,y:330,w:200,h:62,t:"Rede do ITA",s:"banda larga · Tailscale",side:"thr",
+   info:["Lado do teatro","Conexão fixa do Teatro Weiss. O notebook do teatro entra no mesmo túnel Tailscale e enxerga o broker MQTT do carro como se estivesse na mesma rede.","Falta confirmar se a rede do ITA libera o Tailscale (UDP) ou se ele cai para o relay DERP."]},
+ nbt:{x:735,y:40,w:200,h:232,t:"Notebook do teatro",s:"GPU · réplica",side:"thr",
+   chips:[["mqtt","Bridge MQTT (réplica)"],["sqlite","SQLite réplica"],["harness","Harness · modo teatro"],["ollama","Ollama · mesmo GGUF"]],
+   info:["Lado do teatro","Recebe cada leitura pelo MQTT e grava numa cópia do banco. Roda o mesmo harness com TE251_MODO=teatro e o mesmo modelo. A diferença: o dado sempre é do passado, e a resposta sempre diz quão velho ele é.","No código: te251/enlace.py replica com marca de envio no SQLite; se o 4G cair, nada se perde."]},
+ tur:{x:955,y:100,w:125,h:110,t:"Turma",s:"navegador · telão",side:"thr",
+   info:["Lado do teatro","Os alunos fazem perguntas pelo navegador ou acompanham no telão do Teatro Weiss. Eles conversam com a IA do notebook do teatro, nunca com o carro diretamente.","Interface: a mesma página web do harness (porta 8090), aberta na rede da sala."]}
+};
+var LINKS={
+ ecu_obd:{d:"M100 112 V170",l:"OBD2",lx:108,ly:146},
+ obd_nbc:{d:"M170 201 H210",l:"USB",lx:178,ly:194},
+ nbc_rtr:{d:"M327 272 V330",l:"Ethernet",lx:335,ly:305},
+ rtr_hmt:{d:"M210 361 H170",l:"Wi-Fi 5 GHz",lx:150,ly:322},
+ rtr_cel:{d:"M445 361 H470",l:"USB",lx:449,ly:354},
+ cel_net:{d:"M555 361 H585",l:"",lx:0,ly:0},
+ net_ita:{d:"M695 361 H735",l:"",lx:0,ly:0},
+ ita_nbt:{d:"M835 330 V272",l:"LAN",lx:843,ly:305},
+ nbt_tur:{d:"M935 155 H955",l:"",lx:0,ly:0}
+};
+el("rect",{x:10,y:10,width:556,height:472,rx:10,class:"zone"});
+el("rect",{x:715,y:10,width:375,height:472,rx:10,class:"zone"});
+el("text",{x:24,y:472,class:"zlabel"},null,"DENTRO DA SW4 · LAN PRÓPRIA · FUNCIONA SEM INTERNET");
+el("text",{x:729,y:472,class:"zlabel"},null,"TEATRO WEISS · ITA");
+var tun=el("path",{d:"M327 392 V446 H835 V392",class:"tunnel"});
+var tunL=el("text",{x:462,y:438,class:"tlabel"},null,"túnel VPN Tailscale · o carro inicia (atravessa o CGNAT)");
+var linkEls={};
+for(var k in LINKS){var L=LINKS[k];linkEls[k]=el("path",{d:L.d,class:"link"});if(L.l)el("text",{x:L.lx,y:L.ly,class:"llabel"},null,L.l);}
+var cutMark=el("g",{class:"dim"});cutMark.style.display="none";
+el("line",{x1:562,y1:352,x2:578,y2:370,class:"cutmark"},cutMark);el("line",{x1:578,y1:352,x2:562,y2:370,class:"cutmark"},cutMark);
+
+var nodeEls={},chipEls={};
+Object.keys(NODES).forEach(function(id){
+  var n=NODES[id],g=el("g",{class:"node "+(n.side==="thr"?"thr":n.side==="car"?"car":""),tabindex:"0",role:"button","aria-label":n.t});
+  el("rect",{x:n.x,y:n.y,width:n.w,height:n.h,rx:8,class:"box"},g);
+  if(id==="net"){ // nuvem estilizada só como marca de transporte
+    el("path",{d:"M612 395 h56 a14 14 0 0 0 0-28 a20 20 0 0 0-36-10 a15 15 0 0 0-20 14 a12 12 0 0 0 0 24z",fill:"none",stroke:"currentColor","stroke-width":"1.5",style:"color:var(--muted)"},g);
+  }
+  el("text",{x:n.x+12,y:n.y+26,class:"t"},g,n.t);
+  el("text",{x:n.x+12,y:n.y+44,class:"s"},g,n.s);
+  if(n.chips){chipEls[id]={};n.chips.forEach(function(c,i){
+    var cg=el("g",{class:"chip"},g),cy=n.y+56+i*34;
+    el("rect",{x:n.x+10,y:cy,width:n.w-20,height:28,rx:5},cg);
+    el("text",{x:n.x+20,y:cy+18},cg,c[1]);
+    chipEls[id][c[0]]=cg;});}
+  g.addEventListener("click",function(){select(id);});
+  g.addEventListener("keydown",function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();select(id);}});
+  nodeEls[id]=g;
+});
+// contador de mensagens guardadas, pendurado no notebook do carro
+var badge=el("g",{class:"badge"});badge.style.display="none";
+el("rect",{x:380,y:30,width:78,height:22,rx:11},badge);
+var badgeT=el("text",{x:419,y:45,"text-anchor":"middle"},badge,"0 guard.");
+var pktLayer=el("g",{});
+
+function select(id){
+  Object.keys(nodeEls).forEach(function(k){nodeEls[k].classList.toggle("sel",k===id);});
+  var n=NODES[id];
+  document.getElementById("infoSide").textContent=n.info[0];
+  document.getElementById("infoTitle").textContent=n.t;
+  document.getElementById("infoBody").textContent=n.info[1];
+  document.getElementById("infoCode").textContent=n.info[2];
+}
+select("nbc");
+
+/* ---------- pacotes animados ---------- */
+var ROUTES={
+ leitura:[[100,112],[100,201],[210,201],[222,201]],
+ mqtt:[[327,272],[327,361],[585,361],[695,361],[835,361],[835,272]],
+ pergCarro:[[100,361],[327,361],[327,272],[327,230]],
+ respCarro:[[327,230],[327,361],[100,361]],
+ pergTeatro:[[1017,155],[935,155],[880,155]],
+ respTeatro:[[880,155],[935,155],[1017,155]]
+};
+function measure(r){var acc=[0];for(var i=1;i<r.length;i++){acc.push(acc[i-1]+Math.hypot(r[i][0]-r[i-1][0],r[i][1]-r[i-1][1]));}return acc;}
+var RLEN={};for(var r in ROUTES)RLEN[r]=measure(ROUTES[r]);
+function at(route,f){var pts=ROUTES[route],acc=RLEN[route],d=f*acc[acc.length-1];
+  for(var i=1;i<pts.length;i++){if(d<=acc[i]){var u=(d-acc[i-1])/((acc[i]-acc[i-1])||1);return[pts[i-1][0]+u*(pts[i][0]-pts[i-1][0]),pts[i-1][1]+u*(pts[i][1]-pts[i-1][1])];}}
+  return pts[pts.length-1];}
+var packets=[];
+function spawn(route,durMs,color,r,onDone){var c=el("circle",{r:r||4.5,fill:color||"var(--data)"},pktLayer);packets.push({route:route,t:0,dur:durMs,c:c,done:onDone});}
+
+/* ---------- telemetria simulada ---------- */
+var PIDS=[["RPM","Rotação","rpm",0],["SPEED","Velocidade","km/h",0],["COOLANT_TEMP","Arrefecimento","°C",1],["CONTROL_MODULE_VOLTAGE","Tensão","V",1],["INTAKE_PRESSURE","MAP","kPa",0],["FUEL_LEVEL","Combustível","%",1]];
+function gerar(t){
+  var v=74+14*Math.sin(t/23)+5*Math.sin(t/7.3);
+  var load=38+16*Math.sin(t/11+1);
+  return {ts:t,RPM:Math.round(v*24.5+90*Math.sin(t/3.1)),SPEED:Math.round(v),
+    COOLANT_TEMP:Math.round((89+2.5*Math.sin(t/61))*10)/10,
+    CONTROL_MODULE_VOLTAGE:Math.round((14.1+0.12*Math.sin(t/17))*10)/10,
+    INTAKE_PRESSURE:Math.round(120+load*2),FUEL_LEVEL:Math.round((61.4-t*0.0035)*10)/10};
+}
+var simT=0,running=true,speed=1,lastFrame=null,nextSample=0;
+var carDB=[],thrDB=[],pending=[],inflight=0;
+var fourG=true,state="ONLINE",stateSince=0,drainAcc=0;
+var T0=8*3600+42*60; // relógio de parede fictício, 08:42:00
+
+function relogio(t){var s=Math.floor(T0+t),h=Math.floor(s/3600)%24,m=Math.floor(s/60)%60,ss=s%60;return(h<10?"0":"")+h+":"+(m<10?"0":"")+m+":"+(ss<10?"0":"")+ss;}
+var logEl=document.getElementById("log");
+function log(msg,em){var d=document.createElement("div");if(em)d.className="e";d.textContent=relogio(simT)+"  "+msg;logEl.prepend(d);while(logEl.children.length>40)logEl.lastChild.remove();}
+
+function setState(s){if(state===s)return;state=s;stateSince=simT;
+  var nomes={ONLINE:"ONLINE",DEGRADADO:"DEGRADADO",TANDEM:"TANDEM",RESSINC:"RESSINCRONIZAÇÃO"};
+  log("enlace → "+nomes[s],true);
+  var pill=document.getElementById("linkPill");pill.textContent=nomes[s];
+  pill.className="pill "+(s==="ONLINE"?"ok":s==="TANDEM"?"bad":"warn");
+  [].forEach.call(document.querySelectorAll("#states div"),function(d){d.classList.toggle("cur",d.dataset.k===s);});
+}
+setState("ONLINE");document.querySelector('#states div[data-k="ONLINE"]').classList.add("cur");
+
+function enviar(amostra,dur){inflight++;spawn("mqtt",dur,"var(--data)",4.5,function(){inflight--;thrDB.push(amostra);thrDB.sort(function(a,b){return a.ts-b.ts});});}
+
+function tickSim(dt){
+  simT+=dt;
+  while(simT>=nextSample){
+    var a=gerar(nextSample);carDB.push(a);if(carDB.length>900)carDB.shift();
+    spawn("leitura",600/Math.min(speed,4),"var(--data)",3.5);
+    pending.push(a);nextSample+=1;
+  }
+  // máquina de estados do enlace (enlace.py)
+  if(!fourG){
+    if(state==="ONLINE"||state==="RESSINC")setState("DEGRADADO");
+    if(state==="DEGRADADO"&&simT-stateSince>6)setState("TANDEM");
+  }else{
+    if(state==="DEGRADADO"||state==="TANDEM")setState("RESSINC");
+  }
+  if(state==="ONLINE"){while(pending.length)enviar(pending.shift(),900/Math.min(speed,4));}
+  if(state==="RESSINC"){
+    drainAcc+=dt*12; // reenvio em lote: ~12 mensagens por segundo de simulação
+    while(drainAcc>=1&&pending.length){drainAcc-=1;enviar(pending.shift(),700/Math.min(speed,4));}
+    if(!pending.length&&inflight===0){drainAcc=0;setState("ONLINE");log("réplica alcançou o carro; nada se perdeu");}
+  }
+  if(carDB.length>900)carDB.shift();
+  if(thrDB.length>900)thrDB.shift();
+}
+
+function fmt(v,dec){return dec?v.toFixed(dec).replace(".",","):String(v);}
+function renderVals(id,s){var dl=document.getElementById(id);var h="";PIDS.forEach(function(p){h+="<dt>"+p[1]+"</dt><dd>"+(s?fmt(s[p[0]],p[3])+" "+p[2]:"—")+"</dd>";});dl.innerHTML=h;}
+function ageTxt(t){return t<60?fmt(Math.round(t*10)/10,1)+" s":Math.floor(t/60)+" min "+Math.round(t%60)+" s";}
+var lastUi=0;
+function renderUi(){
+  var c=carDB[carDB.length-1],r=thrDB[thrDB.length-1];
+  renderVals("valsCar",c);renderVals("valsThr",r);
+  var ac=c?simT-c.ts:0,ar=r?simT-r.ts:null;
+  document.getElementById("ageCar").innerHTML='<span class="pill ok">lido há '+ageTxt(ac)+'</span>';
+  document.getElementById("ageThr").innerHTML=ar==null?'<span class="pill warn">aguardando a 1ª mensagem</span>':
+    '<span class="pill '+(ar>15?"bad":ar>3?"warn":"ok")+'">lido há '+ageTxt(ar)+(ar>15?" · desatualizado":"")+'</span>';
+  document.getElementById("cCar").textContent=carDB.length>=900?"900+":carDB.length;
+  document.getElementById("cThr").textContent=thrDB.length>=900?"900+":thrDB.length;
+  document.getElementById("cBuf").textContent=pending.length;
+  badge.style.display=pending.length>1?"":"none";badgeT.textContent=pending.length+" guard.";
+  var down=!fourG;
+  linkEls.cel_net.classList.toggle("down",down);linkEls.net_ita.classList.toggle("down",down);
+  tun.classList.toggle("down",down);cutMark.style.display=down?"":"none";cutMark.classList.remove("dim");
+  nodeEls.net.classList.toggle("dim",down);
+  tunL.textContent=down?"túnel VPN caído · carro segue sozinho, guardando cada leitura":"túnel VPN Tailscale · o carro inicia (atravessa o CGNAT)";
+}
+
+function frame(ts){
+  if(lastFrame==null)lastFrame=ts;var dms=Math.min(100,ts-lastFrame);lastFrame=ts;
+  if(running)tickSim(dms/1000*speed);
+  for(var i=packets.length-1;i>=0;i--){var p=packets[i];if(running)p.t+=dms;var f=Math.min(1,p.t/p.dur),xy=at(p.route,f);p.c.setAttribute("cx",xy[0]);p.c.setAttribute("cy",xy[1]);
+    if(f>=1){p.c.remove();packets.splice(i,1);if(p.done)p.done();}}
+  if(ts-lastUi>200){lastUi=ts;renderUi();}
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+/* ---------- controles ---------- */
+var bPlay=document.getElementById("btnPlay");
+bPlay.addEventListener("click",function(){running=!running;bPlay.textContent=running?"Pausar":"Continuar";bPlay.setAttribute("aria-pressed",String(!running));});
+var bCut=document.getElementById("btnCut");
+bCut.addEventListener("click",function(){fourG=!fourG;bCut.textContent=fourG?"Cortar o 4G":"Restabelecer o 4G";bCut.classList.toggle("restore",!fourG);log(fourG?"4G voltou; túnel reconectando":"4G caiu no trajeto",true);renderUi();});
+[].forEach.call(document.querySelectorAll(".speed button"),function(b){b.addEventListener("click",function(){speed=+b.dataset.s;[].forEach.call(document.querySelectorAll(".speed button"),function(x){x.setAttribute("aria-pressed",String(x===b));});});});
+
+/* ---------- harness ---------- */
+var origin="carro";
+var QUESTIONS=[
+ {id:"temp",q:"Qual a temperatura do motor agora?"},
+ {id:"fuel",q:"Dá para rodar mais 300 km sem abastecer?"},
+ {id:"dtc",q:"A ECU registrou alguma falha?"},
+ {id:"hist",q:"Como a rotação variou nos últimos 5 minutos?"},
+ {id:"link",q:"O carro está transmitindo agora?"}
+];
+var qSel=document.getElementById("q");
+QUESTIONS.forEach(function(x){var o=document.createElement("option");o.value=x.id;o.textContent=x.q;qSel.appendChild(o);});
+[].forEach.call(document.querySelectorAll(".origin button"),function(b){b.addEventListener("click",function(){origin=b.dataset.o;
+  [].forEach.call(document.querySelectorAll(".origin button"),function(x){x.setAttribute("aria-pressed",String(x===b));});
+  document.getElementById("modeTag").textContent="TE251_MODO="+origin;if(!busy)resetSteps();});});
+
+function db(){return origin==="carro"?carDB:thrDB;}
+function r1(x){return Math.round(x*10)/10;}
+function idadeMax(){return origin==="carro"?5:15;}
+
+// Ferramentas: espelham o contrato de te251/ferramentas.py
+var TOOLS={
+ get_vehicle_state:function(a){var d=db(),u=d[d.length-1],out={};a.pids.forEach(function(p){
+   if(!u){out[p]={erro:"sem leitura"};return;}
+   var meta=PIDS.filter(function(x){return x[0]===p})[0],id=r1(simT-u.ts);
+   out[p]={descricao:meta[1],valor:u[p],unidade:meta[2],idade_s:id,situacao:"normal",faixa_normal:p==="COOLANT_TEMP"?[80,105]:[12.4,14.8]};
+   if(id>idadeMax())out[p].aviso="dado desatualizado";});return out;},
+ fuel_range:function(){var d=db(),u=d[d.length-1];if(!u)return{erro:"nível de combustível indisponível"};
+   var util=Math.max(0,80*(u.FUEL_LEVEL-10)/100),al=util*9.5,id=r1(simT-u.ts);
+   var o={nivel_pct:u.FUEL_LEVEL,litros_totais:r1(80*u.FUEL_LEVEL/100),litros_uteis_acima_da_reserva:r1(util),km_l_usado:9.5,alcance_km:Math.round(al),ponto_de_nao_retorno_km:Math.round(al/2),idade_s:id,aviso:"estimativa com consumo fixo de 9.5 km/L e reserva de 10%"};
+   if(id>idadeMax())o.aviso_idade="dado desatualizado";return o;},
+ get_dtcs:function(){var d=db(),u=d[d.length-1];return{quantidade:1,ativos:[{codigo:"P0401",descricao:"EGR com fluxo insuficiente",gravidade:"baixa"}],idade_s:u?r1(simT-u.ts):null};},
+ search_kb:function(a){return{consulta:a.consulta,trechos:[{fonte:"dtc.csv",texto:"P0401,EGR com fluxo insuficiente,baixa,Programar limpeza ou verificação da válvula EGR"}]};},
+ get_history:function(a){var d=db(),u=d[d.length-1];if(!u)return{pid:a.pid,erro:"sem dados na janela"};
+   var j=d.filter(function(x){return x.ts>=u.ts-a.janela_s;}),vs=j.map(function(x){return x.RPM});
+   var mn=Math.min.apply(null,vs),mx=Math.max.apply(null,vs),md=Math.round(vs.reduce(function(s,v){return s+v},0)/vs.length);
+   return{pid:"RPM",descricao:"Rotação do motor",unidade:"rpm",janela_s:a.janela_s,amostras:vs.length,minimo:mn,maximo:mx,media:md,idade_s:r1(simT-u.ts)};},
+ get_link_status:function(){var d=db(),u=d[d.length-1];if(!u)return{modo:origin,dado_ao_vivo:false,aviso:"banco vazio"};
+   var id=r1(simT-u.ts),viv=id<=idadeMax(),o={modo:origin,dado_ao_vivo:viv,idade_ultimo_dado_s:id};
+   if(!viv)o.aviso=(origin==="carro"?"coletor parado: o último dado tem ":"enlace com o carro interrompido: a réplica parou há ")+Math.round(id)+" s";
+   else if(origin==="teatro")o.aviso="réplica do carro; o dado chega com alguns segundos de atraso";return o;}
+};
+var CALLS={temp:[["get_vehicle_state",{pids:["COOLANT_TEMP"]}]],fuel:[["fuel_range",{}]],dtc:[["get_dtcs",{}],["search_kb",{consulta:"P0401 EGR"}]],hist:[["get_history",{pid:"RPM",janela_s:300}]],link:[["get_link_status",{}]]};
+
+function n(v,dec){return dec?String(v.toFixed(dec)).replace(".",","):String(v);}
+function idadeFrase(id){return origin==="carro"?"Leitura feita há "+n(id,1)+" s.":"Dado lido no carro há "+n(id,1)+" s; aqui no teatro é a réplica.";}
+function staleFrase(id){return "Atenção: o enlace com o carro parou há "+n(id,1)+" s. O carro pode estar em outro estado agora.";}
+// Redação do LLM (simulada) a partir das saídas das ferramentas
+function redigir(id,outs){var o=outs[0],s;
+  if(id==="temp"){var c=o.COOLANT_TEMP;s="O líquido de arrefecimento está em "+n(c.valor,1)+" °C, dentro da faixa normal de 80 a 105 °C. "+idadeFrase(c.idade_s);return[s,c.idade_s];}
+  if(id==="fuel"){var ok=o.alcance_km>=300;s="Com "+n(o.nivel_pct,1)+" % no tanque ("+n(o.litros_totais,1)+" L), a estimativa é de "+o.alcance_km+" km até a reserva de 10 %, com consumo fixo de 9,5 km/L. "+(ok?"Então sim, 300 km cabem, mas é estimativa.":"Então 300 km não cabem sem abastecer; é estimativa.")+" "+idadeFrase(o.idade_s);return[s,o.idade_s];}
+  if(id==="dtc"){s="Há 1 código ativo: P0401, EGR com fluxo insuficiente, gravidade baixa. A base recomenda programar limpeza ou verificação da válvula EGR; não é motivo para parar. "+idadeFrase(o.idade_s);return[s,o.idade_s];}
+  if(id==="hist"){s="Nos últimos 5 minutos ("+o.amostras+" leituras) a rotação ficou entre "+o.minimo+" e "+o.maximo+" rpm, com média de "+o.media+" rpm. "+idadeFrase(o.idade_s);return[s,o.idade_s];}
+  if(id==="link"){var a=o.idade_ultimo_dado_s;
+    if(origin==="carro")s="Sim. O coletor está gravando: a última leitura tem "+n(a,1)+" s. Para o teatro, o enlace está em "+({ONLINE:"ONLINE",DEGRADADO:"DEGRADADO",TANDEM:"TANDEM",RESSINC:"RESSINCRONIZAÇÃO"})[state]+", mas isso não afeta as respostas aqui no carro.";
+    else s=o.dado_ao_vivo?"Sim. A réplica está recebendo; o último dado chegou com "+n(a,1)+" s de atraso.":"Não. A réplica parou há "+n(a,1)+" s, provavelmente por queda do 4G no trajeto. Respondo com o último dado que chegou.";
+    return[s,a];}
+}
+// Resposta por regras (te251/regras.py): só valores das ferramentas, sem enfeite
+function regras(id,outs){var o=outs[0];
+  if(id==="temp")return "Arrefecimento: "+n(o.COOLANT_TEMP.valor,1)+" °C (normal). Idade: "+n(o.COOLANT_TEMP.idade_s,1)+" s.";
+  if(id==="fuel")return "Combustível: "+n(o.nivel_pct,1)+" %. Alcance estimado: "+o.alcance_km+" km até a reserva. Idade: "+n(o.idade_s,1)+" s.";
+  if(id==="dtc")return "Falhas ativas: 1 (P0401, gravidade baixa). Idade: "+n(o.idade_s,1)+" s.";
+  if(id==="hist")return "Rotação, últimos 5 min: mínimo "+o.minimo+", máximo "+o.maximo+", média "+o.media+" rpm.";
+  return "Enlace: último dado há "+n(o.idade_ultimo_dado_s,1)+" s.";}
+
+// Checagem de números (te251/guardrails.py)
+function numeros(txt){var t=txt.replace(/\b[PCBU]\d{4}\b/g," ");var m=t.match(/-?\d+(?:[.,]\d+)?/g)||[];return m.map(function(s){return{raw:s,v:parseFloat(s.replace(",","."))};});}
+function valores(obj,acc){if(typeof obj==="boolean")return acc;if(typeof obj==="number")acc.push(obj);
+  else if(Array.isArray(obj))obj.forEach(function(v){valores(v,acc)});else if(obj&&typeof obj==="object")Object.keys(obj).forEach(function(k){valores(obj[k],acc)});
+  else if(typeof obj==="string")numeros(obj).forEach(function(x){acc.push(x.v)});return acc;}
+function checar(resp,outs,perg){var fontes=valores(outs,[]);numeros(perg).forEach(function(x){fontes.push(x.v)});
+  return numeros(resp).map(function(x){var ok=fontes.some(function(f){return Math.abs(f-x.v)<=Math.max(0.051,Math.abs(f)*0.005);})
+    ;return{raw:x.raw,ok:ok};});}
+function marcar(txt,res){var i=0,html="",resto=txt.replace(/</g,"&lt;");
+  // destaca cada número na ordem em que aparece, ignorando códigos DTC
+  return resto.replace(/\b[PCBU]\d{4}\b|-?\d+(?:[.,]\d+)?/g,function(m){if(/^[PCBU]\d{4}$/.test(m))return m;var r=res[i++];return '<span class="num '+(r&&r.ok?"ok":"bad")+'">'+m+'</span>';});}
+
+var STEPS_DEF=[
+ ["Entrada","",""],["Harness monta o contexto","",""],["LLM local decide",""],["Ferramenta consulta o SQLite",""],["LLM redige a resposta",""],["Checagem de números",""],["Idade do dado",""],["Resposta entregue",""]];
+var stepsEl=document.getElementById("steps"),answerBox=document.getElementById("answerBox");
+function resetSteps(){stepsEl.innerHTML="";STEPS_DEF.forEach(function(s){var li=document.createElement("li");li.className="idle";li.innerHTML='<div><div class="st-t">'+s[0]+'</div><div class="st-b"></div></div>';stepsEl.appendChild(li);});answerBox.innerHTML="";}
+resetSteps();
+function step(i,cls,html){var li=stepsEl.children[i];li.className=cls;li.querySelector(".st-b").innerHTML=html;}
+function glow(ids,chips){Object.keys(nodeEls).forEach(function(k){nodeEls[k].classList.toggle("glow",ids.indexOf(k)>=0);});
+  Object.keys(chipEls).forEach(function(nid){Object.keys(chipEls[nid]).forEach(function(c){chipEls[nid][c].classList.toggle("glow",!!(chips&&chips[nid]===c));});});}
+function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;");}
+function wait(ms){return new Promise(function(r){setTimeout(r,ms);});}
+
+var busy=false,bAsk=document.getElementById("btnAsk");
+bAsk.addEventListener("click",function(){if(!busy)run();});
+async function run(){
+  busy=true;bAsk.disabled=true;resetSteps();
+  var qid=qSel.value,perg=QUESTIONS.filter(function(x){return x.id===qid})[0].q,car=origin==="carro";
+  var nb=car?"nbc":"nbt",halluc=document.getElementById("halluc").checked,P=650;
+  // 1 entrada
+  step(0,"on",car?"O operador fala no HMT-1: <i>“"+esc(perg)+"”</i>. O faster-whisper transcreve e o texto vai pelo Wi-Fi 5 GHz e pelo roteador até o harness. Não passa pela internet.":"Um aluno digita no navegador da sala: <i>“"+esc(perg)+"”</i>. A pergunta vai ao harness do notebook do teatro; o carro não é consultado.");
+  glow(car?["hmt","rtr",nb]:["tur",nb]);spawn(car?"pergCarro":"pergTeatro",900,car?"var(--car)":"var(--thr)",6);
+  await wait(P*1.6);step(0,"done",stepsEl.children[0].querySelector(".st-b").innerHTML);
+  // 2 contexto
+  var c={};c[nb]="harness";glow([nb],c);
+  step(1,"on","Prompt de sistema do modo <b>"+origin+"</b> ("+(car?"“os dados são ao vivo”":"“o dado nunca é do instante atual: sempre diga há quanto tempo foi lido”")+") + a pergunta + o esquema das 6 ferramentas.");
+  await wait(P);step(1,"done",stepsEl.children[1].querySelector(".st-b").innerHTML);
+  // 3 LLM decide
+  c={};c[nb]="ollama";glow([nb],c);
+  var calls=CALLS[qid];
+  step(2,"on","Ollama roda o GGUF te251 na GPU local e devolve <code>tool_calls</code>:<pre class=\"json\">"+esc(calls.map(function(x){return x[0]+"("+JSON.stringify(x[1])+")";}).join("\n"))+"</pre>");
+  await wait(P*1.3);step(2,"done",stepsEl.children[2].querySelector(".st-b").innerHTML);
+  // 4 ferramentas
+  c={};c[nb]="sqlite";glow([nb],c);
+  var outs=calls.map(function(x){return TOOLS[x[0]](x[1]);});
+  step(3,"on",(car?"Lê o banco escrito pelo coletor (ao vivo).":"Lê a <b>réplica</b> que chegou por MQTT.")+"<pre class=\"json\">"+esc(JSON.stringify(outs.length===1?outs[0]:outs,null,1))+"</pre>");
+  await wait(P*1.6);step(3,"done",stepsEl.children[3].querySelector(".st-b").innerHTML);
+  // 5 redige
+  c={};c[nb]="ollama";glow([nb],c);
+  var r=redigir(qid,outs),draft=r[0],idade=r[1],stale=idade>idadeMax();
+  if(halluc)draft=draft.replace(/(\.)( |$)/,". O consumo médio agora é de 11,3 km/L.$2");
+  if(stale&&!car)draft+=" "+staleFrase(idade);
+  step(4,"on","Rascunho do LLM:<div class=\"draft\">"+esc(draft)+"</div>");
+  await wait(P*1.3);step(4,"done",stepsEl.children[4].querySelector(".st-b").innerHTML);
+  // 6 checagem
+  c={};c[nb]="harness";glow([nb],c);
+  var res=checar(draft,outs,perg),bad=res.filter(function(x){return !x.ok;});
+  step(5,bad.length?"fail":"on",(bad.length?"Reprovada: "+bad.map(function(x){return x.raw}).join(", ")+" não aparece em nenhuma ferramenta nem na pergunta.":"Todos os "+res.length+" números têm fonte numa ferramenta ou na pergunta.")+"<div class=\"draft\">"+marcar(draft,res)+"</div>");
+  await wait(P*1.6);if(!bad.length)step(5,"done",stepsEl.children[5].querySelector(".st-b").innerHTML);
+  // 7 idade
+  step(6,stale?"fail":"on","Última leitura usada: <b>"+ageTxt(idade)+"</b>. Limite no modo "+origin+": "+idadeMax()+" s. "+(stale?"<span class=\"pill bad\">dado desatualizado</span> a resposta tem de avisar.":"<span class=\"pill ok\">dentro do limite</span>"));
+  await wait(P);if(!stale)step(6,"done",stepsEl.children[6].querySelector(".st-b").innerHTML);
+  // 8 resposta
+  var final=bad.length?regras(qid,outs)+(stale&&!car?" "+staleFrase(idade):""):draft;
+  var fonte=bad.length?"regras (resposta do LLM reprovada: números sem fonte ["+bad.map(function(x){return x.raw}).join(", ")+"])":"LLM te251 (local, "+(car?"notebook do carro":"notebook do teatro")+")";
+  glow(car?["hmt","rtr",nb]:["tur",nb]);spawn(car?"respCarro":"respTeatro",900,car?"var(--car)":"var(--thr)",6);
+  step(7,"done",car?"Volta pela LAN ao HMT-1: texto na tela e voz pelo Piper TTS.":"Aparece no navegador e no telão do Teatro Weiss.");
+  answerBox.innerHTML='<div class="answer'+(bad.length?" fallback":"")+'"><div class="eyebrow">'+(car?"resposta no HMT-1":"resposta no telão")+'</div><div>'+esc(final)+'</div><div class="src">fonte: '+esc(fonte)+'</div></div>';
+  await wait(900);glow([]);busy=false;bAsk.disabled=false;
+}
+log("coletor iniciado; enlace ONLINE");
+})();
+</script>

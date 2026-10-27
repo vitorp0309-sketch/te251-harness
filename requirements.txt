@@ -1,0 +1,5 @@
+# O núcleo (simulador, harness, chat, web, testes) usa só a biblioteca padrão.
+# Só para o coletor OBD2 real:
+obd>=0.7
+# Só para o enlace carro <-> teatro:
+paho-mqtt>=2.0

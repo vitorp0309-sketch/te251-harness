@@ -1,0 +1,36 @@
+# Bancos SQLite (dados de telemetria, réplicas) e exports
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+exports/
+*.csv
+!kb/*.csv
+
+# Ambientes Python
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+
+# Modelos e pesos (GGUF, adaptadores LoRA, embeddings)
+*.gguf
+*.safetensors
+*.bin
+*.pt
+*.pth
+models/
+modelos/
+checkpoints/
+
+# Sistema e editores
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+.env
