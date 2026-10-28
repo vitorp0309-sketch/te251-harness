@@ -71,7 +71,7 @@ Requer Python 3.10 ou mais novo. O núcleo usa só a biblioteca padrão, então 
 
 ```
 cd te251-harness
-python -m unittest discover tests          # 12 testes; os 2 do enlace são pulados sem broker MQTT
+python -m unittest discover tests          # 19 testes; os 2 do enlace são pulados sem broker MQTT
 ```
 
 Para o LLM local, instale o [Ollama](https://ollama.com) e baixe um modelo uma vez:
@@ -136,10 +136,20 @@ Para ver o modo tandem: desligue a réplica do teatro por um minuto com o simula
 ```
 pip install obd
 python -m te251.coletor --varrer             # lista os PIDs que a ECU da SW4 suporta (anote se FUEL_LEVEL aparece)
-python -m te251.coletor --porta COM5         # grava no mesmo te251.db (Linux: /dev/ttyUSB0)
+python -m te251.coletor --porta COM5 --descricao "first trial"   # grava no te251.db numa sessão nova (Linux: /dev/ttyUSB0)
 ```
 
 O coletor é somente leitura: usa os modos 01 e 03 do OBD2 e nunca escreve na ECU. Ele descarta leituras fora da faixa física. Com o coletor rodando, o chat e o web funcionam do mesmo jeito que com o simulador.
+
+## Banco de dados
+
+Tudo fica num arquivo SQLite (`te251.db`): sessões (cada rodagem ou teste), telemetria, códigos de falha e cada pergunta feita à IA com a resposta. O esquema, a migração e as medições de custo estão em [`docs/banco.md`](docs/banco.md).
+
+```
+python -m te251.banco sessoes                                   # o que já foi gravado
+python -m te251.banco interacoes --sessao 3                     # perguntas e respostas de uma sessão
+python -m te251.banco exportar --saida exports/s3.csv --sessao 3
+```
 
 ## O que é provisório nesta v0
 
@@ -155,7 +165,8 @@ O coletor é somente leitura: usa os modos 01 e 03 do OBD2 e nunca escreve na EC
 | Arquivo | Função |
 | --- | --- |
 | `te251/config.py` | caminhos, modelo, PIDs e faixas normais (tudo ajustável por variável de ambiente) |
-| `te251/store.py` | banco SQLite em modo WAL |
+| `te251/store.py` | banco SQLite em modo WAL: esquema v1, migração, sessões e registro das perguntas |
+| `te251/banco.py` | utilitário do banco: info, sessões, interações, exportar CSV, medir custo |
 | `te251/simulador.py` | gera dados realistas por cenário |
 | `te251/coletor.py` | OBD2 real via python-OBD |
 | `te251/ferramentas.py` | as 6 ferramentas e seus esquemas para o LLM |

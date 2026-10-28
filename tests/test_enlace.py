@@ -68,6 +68,10 @@ class TestEnlace(unittest.TestCase):
         time.sleep(2)
         self.assertEqual(self._contar(self.teatro), self._contar(self.carro))
         self.assertEqual(self.teatro.dtcs_ativos(), self.carro.dtcs_ativos())
+        # a sessão do carro chega à réplica com o mesmo id
+        sessao_carro = self.carro.sessoes()[0][0]
+        self.assertEqual([(s[0], s[4]) for s in self.teatro.sessoes()], [(sessao_carro, "replica")])
+        self.assertEqual(self.teatro.db.execute("SELECT COUNT(*) FROM sample WHERE sessao_id IS NULL").fetchone()[0], 0)
         t.join(timeout=15)
 
     def test_corte_de_enlace_nao_perde_amostra(self):
