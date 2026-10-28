@@ -12,7 +12,7 @@ import json
 import time
 
 from te251 import config
-from te251.store import Store
+from te251.store import Store, unidade_padrao
 
 TOPICO_TELEMETRIA = "te251/telemetry"
 TOPICO_DTC = "te251/dtc"
@@ -88,6 +88,26 @@ def publicar(broker, porta=1883, lote=500, intervalo=1.0, store=None, ciclos=Non
 
 
 # ---------------------------------------------------------------- teatro
+def aplicar_mensagem(st, topico, d):
+    """Grava na réplica uma mensagem recebida do carro.
+
+    Aceita também o formato do app de estações do Willian (PROJETO-TE-251):
+    falhas em "dtc" em vez de "dtcs" e unidades no padrão do python-OBD ("degree_Celsius").
+    """
+    with st._lock:
+        if topico == TOPICO_DTC:
+            st._gravar_dtcs(d.get("dtcs", d.get("dtc", [])), d.get("ts", time.time()))
+            return
+        sessao = d.get("s")
+        if sessao is not None:   # a sessão do carro reaparece na réplica com o mesmo id
+            st.db.execute("INSERT OR IGNORE INTO sessao(id, inicio, modo, origem, descricao) "
+                          "VALUES(?,?,?,?,?)", (sessao, d["ts"], "carro", "replica",
+                                                f"réplica da sessão {sessao} do carro"))
+        st.db.execute("INSERT OR IGNORE INTO sample(seq, ts, pid, value, unit, fonte, sessao_id) "
+                      "VALUES(?,?,?,?,?,?,?)",
+                      (d["seq"], d["ts"], d["pid"], d["v"], unidade_padrao(d["u"]), "replica", sessao))
+
+
 def replicar(broker, porta=1883, store=None, segundos=None):
     st = store or Store()
 
@@ -99,18 +119,7 @@ def replicar(broker, porta=1883, store=None, segundos=None):
             d = json.loads(msg.payload)
         except ValueError:
             return
-        with st._lock:
-            if msg.topic == TOPICO_DTC:
-                st._gravar_dtcs(d.get("dtcs", []), d.get("ts", time.time()))
-            else:
-                sessao = d.get("s")
-                if sessao is not None:   # a sessão do carro reaparece na réplica com o mesmo id
-                    st.db.execute("INSERT OR IGNORE INTO sessao(id, inicio, modo, origem, descricao) "
-                                  "VALUES(?,?,?,?,?)", (sessao, d["ts"], "carro", "replica",
-                                                        f"réplica da sessão {sessao} do carro"))
-                st.db.execute("INSERT OR IGNORE INTO sample(seq, ts, pid, value, unit, fonte, sessao_id) "
-                              "VALUES(?,?,?,?,?,?,?)",
-                              (d["seq"], d["ts"], d["pid"], d["v"], d["u"], "replica", sessao))
+        aplicar_mensagem(st, msg.topic, d)
 
     cli = _cliente("te251-teatro", broker, porta)
     cli.on_connect = ao_conectar
