@@ -11,7 +11,7 @@ Projeto da disciplina TE-251 (ITA): um LLM **local** responde, em tempo real, pe
 | Quem usa | equipe no carro (o motorista não usa a IA) | turma na sala, pelo telão/navegador |
 | Se o enlace cair | segue respondendo ao vivo | responde com o último estado e **sempre informa a idade do dado** |
 
-- Enlace: carro sobe por 4G; VPN **Tailscale** (atravessa o CGNAT da operadora). A internet só transporta dados.
+- Enlace: carro sobe por 4G; VPN **ZeroTier** (rede `TE251-VPN`, administrada pelo Willian), que atravessa o CGNAT da operadora. O broker MQTT fica no computador da sala. A internet só transporta dados. Detalhes, IPs e roteiro de teste no 4G em [`docs/rede-zerotier.md`](docs/rede-zerotier.md).
 - Restrições: IA 100% local (nada de nuvem), barramento OBD2 **somente leitura**, SQLite como banco (CSV só para exportação).
 - Documentos de análise em [`docs/`](docs/): viabilidade, arquitetura explicada, paralelo com o RAG RIPEAM, comparativo e simulador (HTML).
 
@@ -127,7 +127,7 @@ python -m te251.enlace replicar --broker <ip-do-broker>
 python -m te251.web                                # telão: http://localhost:8090
 ```
 
-Em campo, o broker fica no computador do teatro e o carro o alcança pela VPN (Tailscale), que atravessa o CGNAT da operadora. Use o mesmo modelo nos dois Ollama, ou as respostas vão divergir na frente da plateia.
+Em campo, o broker fica no computador da sala e o carro o alcança pelo IP dele na VPN ZeroTier, que atravessa o CGNAT da operadora. Em vez de `--broker` em todo comando, dá para definir `TE251_BROKER=<ip-da-sala>` uma vez (senha opcional em `TE251_MQTT_USUARIO`/`TE251_MQTT_SENHA`). Configuração do broker: [`docs/mosquitto-sala.conf`](docs/mosquitto-sala.conf). Use o mesmo modelo nos dois Ollama, ou as respostas vão divergir na frente da plateia.
 
 Para ver o modo tandem: desligue a réplica do teatro por um minuto com o simulador rodando, depois ligue de novo. Nenhuma amostra se perde, e durante o corte o teatro responde avisando a idade do dado.
 
@@ -147,7 +147,7 @@ O coletor é somente leitura: usa os modos 01 e 03 do OBD2 e nunca escreve na EC
 - Consumo fixo de 9,5 km/L e tanque de 80 L em `config.py`. Calibrar com rodagens reais.
 - `search_kb` busca por palavras-chave. A troca por embeddings locais (bge-m3 + Chroma) fica para a próxima versão.
 - Ainda não tem ocupação dos bancos, distância de viagem (OSRM), voz do HMT-1 nem integração com o Open WebUI (`mcp_server.py` + `mcpo`).
-- O enlace foi testado contra um broker local, não contra 4G real com CGNAT e VPN.
+- O enlace foi testado contra um broker local, não contra 4G real com CGNAT e VPN. Pela VPN ZeroTier em rede fixa, o ping deu 0% de perda e média de 47 ms (28/10); o roteiro do teste no 4G está em [`docs/rede-zerotier.md`](docs/rede-zerotier.md).
 - Não foi testado com um Ollama de verdade: os testes usam um LLM falso que imita a API do Ollama. O primeiro teste real é rodar `python -m te251.chat` com o Ollama no ar.
 
 ## Arquivos

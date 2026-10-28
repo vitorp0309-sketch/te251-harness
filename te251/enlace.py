@@ -3,6 +3,8 @@
 No carro:   python -m te251.enlace publicar --broker <ip-do-broker>
 No teatro:  python -m te251.enlace replicar --broker <ip-do-broker>
 
+Sem --broker, vale TE251_BROKER (padrão 127.0.0.1). Em campo, é o IP da sala na VPN ZeroTier.
+
 A fila é o próprio SQLite: o publicador guarda até onde já enviou (tabela `envio`)
 e retoma do ponto exato quando o enlace volta. Nada se perde num corte.
 A réplica ignora amostras repetidas, porque `seq` é chave primária.
@@ -22,6 +24,8 @@ TOPICO_HEARTBEAT = "te251/status"
 def _cliente(nome, broker, porta, limpar_sessao=False):
     import paho.mqtt.client as mqtt
     c = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=nome, clean_session=limpar_sessao)
+    if config.MQTT_USUARIO:
+        c.username_pw_set(config.MQTT_USUARIO, config.MQTT_SENHA)
     c.reconnect_delay_set(min_delay=1, max_delay=30)
     c.connect_async(broker, porta, keepalive=30)
     return c
@@ -127,8 +131,8 @@ def replicar(broker, porta=1883, store=None, segundos=None):
 def main():
     ap = argparse.ArgumentParser(description="Enlace MQTT do TE-251")
     ap.add_argument("papel", choices=["publicar", "replicar"])
-    ap.add_argument("--broker", default="127.0.0.1", help="endereço do broker MQTT (Tailscale/LAN)")
-    ap.add_argument("--porta", type=int, default=1883)
+    ap.add_argument("--broker", default=config.BROKER, help="endereço do broker MQTT (IP ZeroTier da sala ou LAN)")
+    ap.add_argument("--porta", type=int, default=config.BROKER_PORTA)
     a = ap.parse_args()
     print(f"{a.papel} · broker {a.broker}:{a.porta} · banco {config.DB_PATH}  (Ctrl+C para parar)")
     (publicar if a.papel == "publicar" else replicar)(a.broker, a.porta)
