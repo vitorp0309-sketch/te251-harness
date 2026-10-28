@@ -63,6 +63,18 @@ class Veiculo:
 def rodar(cenario="estrada", segundos=None, hz=5.0, aquecer_s=600, store=None, sleep=True):
     """Grava amostras simuladas. `aquecer_s` gera um histórico passado antes de começar."""
     st = store or Store()
+    abriu = st.sessao_id is None
+    if abriu:
+        st.abrir_sessao("simulador", f"cenário {cenario}", inicio=time.time() - aquecer_s)
+    try:
+        return _rodar(st, cenario, segundos, hz, aquecer_s, sleep)
+    finally:
+        if abriu:
+            st.commit()
+            st.fechar_sessao()
+
+
+def _rodar(st, cenario, segundos, hz, aquecer_s, sleep):
     v = Veiculo(cenario)
     dt = 1.0 / hz
     agora = time.time()

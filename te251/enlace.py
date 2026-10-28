@@ -53,12 +53,13 @@ def publicar(broker, porta=1883, lote=500, intervalo=1.0, store=None, ciclos=Non
                 continue
             ate = st.db.execute("SELECT ate_seq FROM envio").fetchone()[0]
             linhas = st.db.execute(
-                "SELECT seq, ts, pid, value, unit FROM sample WHERE seq>? ORDER BY seq LIMIT ?",
+                "SELECT seq, ts, pid, value, unit, sessao_id FROM sample WHERE seq>? ORDER BY seq LIMIT ?",
                 (ate, lote)).fetchall()
             enviadas = 0
-            for seq, ts, pid, valor, unidade in linhas:
+            for seq, ts, pid, valor, unidade, sessao in linhas:
                 msg = cli.publish(f"{TOPICO_TELEMETRIA}/{pid}",
-                                  json.dumps({"seq": seq, "ts": ts, "pid": pid, "v": valor, "u": unidade}),
+                                  json.dumps({"seq": seq, "ts": ts, "pid": pid, "v": valor, "u": unidade,
+                                              "s": sessao}),
                                   qos=1)
                 if msg.rc != 0:          # desconectado: para aqui e tenta de novo no próximo ciclo
                     break
@@ -102,8 +103,14 @@ def replicar(broker, porta=1883, store=None, segundos=None):
             if msg.topic == TOPICO_DTC:
                 st._gravar_dtcs(d.get("dtcs", []), d.get("ts", time.time()))
             else:
-                st.db.execute("INSERT OR IGNORE INTO sample VALUES(?,?,?,?,?,?)",
-                              (d["seq"], d["ts"], d["pid"], d["v"], d["u"], "replica"))
+                sessao = d.get("s")
+                if sessao is not None:   # a sessão do carro reaparece na réplica com o mesmo id
+                    st.db.execute("INSERT OR IGNORE INTO sessao(id, inicio, modo, origem, descricao) "
+                                  "VALUES(?,?,?,?,?)", (sessao, d["ts"], "carro", "replica",
+                                                        f"réplica da sessão {sessao} do carro"))
+                st.db.execute("INSERT OR IGNORE INTO sample(seq, ts, pid, value, unit, fonte, sessao_id) "
+                              "VALUES(?,?,?,?,?,?,?)",
+                              (d["seq"], d["ts"], d["pid"], d["v"], d["u"], "replica", sessao))
 
     cli = _cliente("te251-teatro", broker, porta)
     cli.on_connect = ao_conectar

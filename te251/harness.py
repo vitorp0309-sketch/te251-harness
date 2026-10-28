@@ -3,6 +3,7 @@
 Só usa a biblioteca padrão do Python para falar com o Ollama (HTTP local).
 """
 import json
+import sqlite3
 import time
 import urllib.error
 import urllib.request
@@ -56,7 +57,17 @@ def perguntar(pergunta, chat=None, historico=None):
 
     `chat` permite trocar o LLM (nos testes, um falso); padrão = Ollama local.
     `historico` = mensagens anteriores (usuário/assistente) da mesma conversa.
+    Cada pergunta fica registrada na tabela `interacao` do banco.
     """
+    r = _responder(pergunta, chat, historico)
+    try:
+        F.store().registrar_interacao(pergunta, r)
+    except sqlite3.Error:
+        pass                     # falha no registro nunca impede a resposta
+    return r
+
+
+def _responder(pergunta, chat, historico):
     t0 = time.time()
     usadas, saidas = [], []
     if chat is None:

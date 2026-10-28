@@ -5,6 +5,7 @@ Uso:
     python -m te251.coletor --porta COM5          # Windows
     python -m te251.coletor --porta /dev/ttyUSB0  # Linux
     python -m te251.coletor --varrer              # só lista os PIDs que a ECU suporta
+    python -m te251.coletor --porta COM5 --descricao "first trial"   # nota que vai para a sessão
 """
 import argparse
 import time
@@ -19,6 +20,7 @@ def main():
     ap = argparse.ArgumentParser(description="Coletor OBD2 do TE-251")
     ap.add_argument("--porta", default=None, help="porta serial do adaptador (padrão: autodetectar)")
     ap.add_argument("--varrer", action="store_true", help="lista os PIDs suportados e sai")
+    ap.add_argument("--descricao", default="", help='nota da sessão, ex.: "first trial, garagem do ITA"')
     a = ap.parse_args()
 
     conn = obd.Async(a.porta, fast=False, timeout=0.5)
@@ -31,6 +33,7 @@ def main():
         return
 
     st = Store()
+    st.abrir_sessao("obd", a.descricao)
     comandos = [obd.commands[p] for p in config.PIDS if conn.supports(obd.commands[p])]
     faltando = [p for p in config.PIDS if p not in {c.name for c in comandos}]
     print("PIDs suportados:", [c.name for c in comandos])
@@ -62,6 +65,7 @@ def main():
     except KeyboardInterrupt:
         conn.stop()
         st.commit()
+        st.fechar_sessao()
 
 
 if __name__ == "__main__":
