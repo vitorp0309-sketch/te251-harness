@@ -61,6 +61,13 @@ class TestGuardrails(unittest.TestCase):
         self.assertFalse(ok)
         self.assertEqual(soltos, [98.0])
 
+    def test_faixa_com_hifen_nao_vira_negativo(self):
+        self.assertEqual(guardrails._numeros("faixa normal 80-105 °C"), [80.0, 105.0])
+        self.assertEqual(guardrails._numeros("bateria 12,4-14,8 V"), [12.4, 14.8])
+        self.assertEqual(guardrails._numeros("externa de -5 °C"), [-5.0])
+        saida = [{"COOLANT_TEMP": {"valor": 92.0, "faixa_normal": [80, 105]}}]
+        self.assertTrue(guardrails.checar("92 °C, dentro da faixa 80-105 °C.", saida)[0])
+
     def test_codigo_dtc_nao_conta_como_numero(self):
         self.assertTrue(guardrails.checar("Código P0217 ativo.", [{"quantidade": 1}])[0])
 
