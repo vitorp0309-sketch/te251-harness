@@ -16,6 +16,13 @@ MODELO = os.environ.get("TE251_MODELO", "qwen2.5:7b")   # GPU de 6 GB: qwen2.5:3
 TEMPERATURA = 0.2
 MAX_RODADAS = 6           # máximo de idas e vindas LLM <-> ferramentas por pergunta
 
+# Enlace MQTT. O broker fica no computador da sala (ver docs/rede-zerotier.md);
+# o carro o alcança pelo IP dele na VPN ZeroTier.
+BROKER = os.environ.get("TE251_BROKER", "127.0.0.1")
+BROKER_PORTA = int(os.environ.get("TE251_BROKER_PORTA", "1883"))
+MQTT_USUARIO = os.environ.get("TE251_MQTT_USUARIO") or None   # vazio = broker sem senha
+MQTT_SENHA = os.environ.get("TE251_MQTT_SENHA") or None
+
 WEB_HOST = os.environ.get("TE251_HOST", "0.0.0.0")
 WEB_PORTA = int(os.environ.get("TE251_PORTA", "8090"))
 
