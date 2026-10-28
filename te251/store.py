@@ -223,5 +223,17 @@ class Store:
         return n
 
 
+# Unidades no padrão do python-OBD/pint (usadas pelo app de estações do Willian) -> as do harness
+UNIDADES = {
+    "degree_Celsius": "°C", "percent": "%", "kilopascal": "kPa", "revolutions_per_minute": "rpm",
+    "kilometer_per_hour": "km/h", "volt": "V", "gram / second": "g/s", "degree": "°",
+    "second": "s", "kilometer": "km", "ratio": "",
+}
+
+
+def unidade_padrao(u):
+    return UNIDADES.get(u, u)
+
+
 def data_hora(ts):
     return "-" if ts is None else dt.datetime.fromtimestamp(ts).strftime("%d/%m/%Y %H:%M:%S")

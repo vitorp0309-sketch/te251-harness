@@ -72,9 +72,21 @@ Consultas das ferramentas com o banco cheio: o último valor de um PID e os DTCs
 
 A medição achou um gargalo no v0: buscar o último valor de um PID varria todo o histórico e chegava a 32 ms com 2 h de dados e 68 ms com 8 h, crescendo sem parar. O v1 criou o índice `ix_sample_pid` e o problema sumiu (0,01 ms). O custo é cerca de 25% a mais de espaço em disco.
 
-## Integração com os dados do Will
+## Integração com os dados do Willian (Will)
 
-O Will está coletando OBD2 da SW4 com a ferramenta dele. O plano é um importador (`tools/importar_will.py`) que lê os arquivos dele e grava cada coleta como uma sessão de origem `importacao`, convertendo nomes de PID e unidades para o padrão acima. Para escrever, falta uma amostra dos dados e saber como ele coleta: aplicativo ou script, formato do arquivo, PIDs e taxa de amostragem.
+O Willian coleta o OBD2 da SW4 com o app de estações dele (repositório `PROJETO-TE-251`: ELM327 por Bluetooth, painel web, SQLite e MQTT). O banco dele usa a mesma tabela `sample(seq, ts, pid, value, unit)` e os mesmos nomes de PID do python-OBD, então o arquivo entra direto, sem CSV:
+
+```
+python -m te251.importar "caminho/do/te251.db" --descricao "garagem, 27/10"
+```
+
+- Cada trecho contínuo de gravação vira uma sessão de origem `importacao` (mais de 5 min sem leitura abre outra; ajuste com `--pausa-s`). As amostras ficam com `fonte = 'willian'`.
+- As unidades são convertidas para as do harness (`degree_Celsius` → `°C`, `revolutions_per_minute` → `rpm` etc.; tabela `UNIDADES` em `store.py`).
+- Leituras fisicamente impossíveis são descartadas, com a mesma regra do coletor. PIDs que a IA ainda não usa (o app grava até 30 com "todos os dados") são guardados mesmo assim.
+- O mesmo arquivo não é importado duas vezes (o nome e o hash vão na descrição da sessão); `--forcar` importa de novo.
+- Use o `te251.db` do app. O `te251-simulacao.db` dele é dado falso.
+
+O MQTT do app dele também é compatível com a réplica do teatro (`te251/telemetry/<PID>` com `seq, ts, pid, v, u`). A réplica aceita as falhas no campo `dtc`, como o app manda, e converte as unidades.
 
 ## Limitações conhecidas
 

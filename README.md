@@ -71,7 +71,7 @@ Requer Python 3.10 ou mais novo. O núcleo usa só a biblioteca padrão, então 
 
 ```
 cd te251-harness
-python -m unittest discover tests          # 19 testes; os 2 do enlace são pulados sem broker MQTT
+python -m unittest discover tests          # 22 testes; os 2 do enlace são pulados sem broker MQTT
 ```
 
 Para o LLM local, instale o [Ollama](https://ollama.com) e baixe um modelo uma vez:
@@ -167,6 +167,7 @@ python -m te251.banco exportar --saida exports/s3.csv --sessao 3
 | `te251/config.py` | caminhos, modelo, PIDs e faixas normais (tudo ajustável por variável de ambiente) |
 | `te251/store.py` | banco SQLite em modo WAL: esquema v1, migração, sessões e registro das perguntas |
 | `te251/banco.py` | utilitário do banco: info, sessões, interações, exportar CSV, medir custo |
+| `te251/importar.py` | importa o banco gravado pelo app de estações do Willian |
 | `te251/simulador.py` | gera dados realistas por cenário |
 | `te251/coletor.py` | OBD2 real via python-OBD |
 | `te251/ferramentas.py` | as 6 ferramentas e seus esquemas para o LLM |
