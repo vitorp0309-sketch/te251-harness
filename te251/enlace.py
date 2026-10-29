@@ -3,6 +3,8 @@
 No carro:   python -m te251.enlace publicar --broker <ip-do-broker>
 No teatro:  python -m te251.enlace replicar --broker <ip-do-broker>
 
+Sem --broker, vale TE251_BROKER (padrão 127.0.0.1). Em campo, é o nome da sala na VPN Tailscale (ex.: sala-te251).
+
 A fila é o próprio SQLite: o publicador guarda até onde já enviou (tabela `envio`)
 e retoma do ponto exato quando o enlace volta. Nada se perde num corte.
 A réplica ignora amostras repetidas, porque `seq` é chave primária.
@@ -22,6 +24,8 @@ TOPICO_HEARTBEAT = "te251/status"
 def _cliente(nome, broker, porta, limpar_sessao=False):
     import paho.mqtt.client as mqtt
     c = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=nome, clean_session=limpar_sessao)
+    if config.MQTT_USUARIO:
+        c.username_pw_set(config.MQTT_USUARIO, config.MQTT_SENHA)
     c.reconnect_delay_set(min_delay=1, max_delay=30)
     c.connect_async(broker, porta, keepalive=30)
     return c
@@ -53,13 +57,12 @@ def publicar(broker, porta=1883, lote=500, intervalo=1.0, store=None, ciclos=Non
                 continue
             ate = st.db.execute("SELECT ate_seq FROM envio").fetchone()[0]
             linhas = st.db.execute(
-                "SELECT seq, ts, pid, value, unit, sessao_id FROM sample WHERE seq>? ORDER BY seq LIMIT ?",
+                "SELECT seq, ts, pid, value, unit FROM sample WHERE seq>? ORDER BY seq LIMIT ?",
                 (ate, lote)).fetchall()
             enviadas = 0
-            for seq, ts, pid, valor, unidade, sessao in linhas:
+            for seq, ts, pid, valor, unidade in linhas:
                 msg = cli.publish(f"{TOPICO_TELEMETRIA}/{pid}",
-                                  json.dumps({"seq": seq, "ts": ts, "pid": pid, "v": valor, "u": unidade,
-                                              "s": sessao}),
+                                  json.dumps({"seq": seq, "ts": ts, "pid": pid, "v": valor, "u": unidade}),
                                   qos=1)
                 if msg.rc != 0:          # desconectado: para aqui e tenta de novo no próximo ciclo
                     break
@@ -103,14 +106,8 @@ def replicar(broker, porta=1883, store=None, segundos=None):
             if msg.topic == TOPICO_DTC:
                 st._gravar_dtcs(d.get("dtcs", []), d.get("ts", time.time()))
             else:
-                sessao = d.get("s")
-                if sessao is not None:   # a sessão do carro reaparece na réplica com o mesmo id
-                    st.db.execute("INSERT OR IGNORE INTO sessao(id, inicio, modo, origem, descricao) "
-                                  "VALUES(?,?,?,?,?)", (sessao, d["ts"], "carro", "replica",
-                                                        f"réplica da sessão {sessao} do carro"))
-                st.db.execute("INSERT OR IGNORE INTO sample(seq, ts, pid, value, unit, fonte, sessao_id) "
-                              "VALUES(?,?,?,?,?,?,?)",
-                              (d["seq"], d["ts"], d["pid"], d["v"], d["u"], "replica", sessao))
+                st.db.execute("INSERT OR IGNORE INTO sample VALUES(?,?,?,?,?,?)",
+                              (d["seq"], d["ts"], d["pid"], d["v"], d["u"], "replica"))
 
     cli = _cliente("te251-teatro", broker, porta)
     cli.on_connect = ao_conectar
@@ -134,8 +131,8 @@ def replicar(broker, porta=1883, store=None, segundos=None):
 def main():
     ap = argparse.ArgumentParser(description="Enlace MQTT do TE-251")
     ap.add_argument("papel", choices=["publicar", "replicar"])
-    ap.add_argument("--broker", default="127.0.0.1", help="endereço do broker MQTT (Tailscale/LAN)")
-    ap.add_argument("--porta", type=int, default=1883)
+    ap.add_argument("--broker", default=config.BROKER, help="endereço do broker MQTT (nome/IP Tailscale da sala ou LAN)")
+    ap.add_argument("--porta", type=int, default=config.BROKER_PORTA)
     a = ap.parse_args()
     print(f"{a.papel} · broker {a.broker}:{a.porta} · banco {config.DB_PATH}  (Ctrl+C para parar)")
     (publicar if a.papel == "publicar" else replicar)(a.broker, a.porta)
