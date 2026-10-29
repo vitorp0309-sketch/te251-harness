@@ -11,7 +11,7 @@ Projeto da disciplina TE-251 (ITA): um LLM **local** responde, em tempo real, pe
 | Quem usa | equipe no carro (o motorista não usa a IA) | turma na sala, pelo telão/navegador |
 | Se o enlace cair | segue respondendo ao vivo | responde com o último estado e **sempre informa a idade do dado** |
 
-- Enlace: carro sobe por 4G; VPN **Tailscale** (atravessa o CGNAT da operadora). A internet só transporta dados.
+- Enlace: carro sobe por 4G; VPN **Tailscale** (atravessa o CGNAT da operadora), com o carro `carro-sw4` e a sala `sala-te251` no mesmo tailnet. O broker MQTT fica no computador da sala. A internet só transporta dados. Como montar o tailnet, ACL e roteiro de teste no 4G em [`docs/rede-tailscale.md`](docs/rede-tailscale.md).
 - Restrições: IA 100% local (nada de nuvem), barramento OBD2 **somente leitura**, SQLite como banco (CSV só para exportação).
 - Documentos de análise em [`docs/`](docs/): viabilidade, arquitetura explicada, paralelo com o RAG RIPEAM, comparativo e simulador (HTML).
 
@@ -127,7 +127,7 @@ python -m te251.enlace replicar --broker <ip-do-broker>
 python -m te251.web                                # telão: http://localhost:8090
 ```
 
-Em campo, o broker fica no computador do teatro e o carro o alcança pela VPN (Tailscale), que atravessa o CGNAT da operadora. Use o mesmo modelo nos dois Ollama, ou as respostas vão divergir na frente da plateia.
+Em campo, o broker fica no computador da sala e o carro o alcança pelo nome dela no Tailscale (`sala-te251`), que atravessa o CGNAT da operadora. Em vez de `--broker` em todo comando, dá para definir `TE251_BROKER=sala-te251` uma vez (senha opcional em `TE251_MQTT_USUARIO`/`TE251_MQTT_SENHA`). Configuração do broker: [`docs/mosquitto-sala.conf`](docs/mosquitto-sala.conf). Use o mesmo modelo nos dois Ollama, ou as respostas vão divergir na frente da plateia.
 
 Para ver o modo tandem: desligue a réplica do teatro por um minuto com o simulador rodando, depois ligue de novo. Nenhuma amostra se perde, e durante o corte o teatro responde avisando a idade do dado.
 
@@ -157,7 +157,7 @@ python -m te251.banco exportar --saida exports/s3.csv --sessao 3
 - Consumo fixo de 9,5 km/L e tanque de 80 L em `config.py`. Calibrar com rodagens reais.
 - `search_kb` busca por palavras-chave. A troca por embeddings locais (bge-m3 + Chroma) fica para a próxima versão.
 - Ainda não tem ocupação dos bancos, distância de viagem (OSRM), voz do HMT-1 nem integração com o Open WebUI (`mcp_server.py` + `mcpo`).
-- O enlace foi testado contra um broker local, não contra 4G real com CGNAT e VPN.
+- O enlace foi testado contra um broker local, não contra 4G real com CGNAT e VPN. O roteiro do teste no 4G está em [`docs/rede-tailscale.md`](docs/rede-tailscale.md).
 - Não foi testado com um Ollama de verdade: os testes usam um LLM falso que imita a API do Ollama. O primeiro teste real é rodar `python -m te251.chat` com o Ollama no ar.
 
 ## Arquivos
